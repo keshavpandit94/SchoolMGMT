@@ -1,0 +1,52 @@
+services:
+  # -------------------------------------------------------------
+  # 1. BACKEND SERVICE (Node.js / Express / Socket.io API)
+  # -------------------------------------------------------------
+  - type: web
+    name: school-mgmt-backend
+    env: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    envVars:
+      - key: PORT
+        value: 5000
+      - key: NODE_ENV
+        value: production
+      - key: MONGO_URI
+        sync: false # Enter your MongoDB Atlas connection string in Render Dashboard
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CLIENT_URL
+        sync: false # Set to your Render Frontend URL e.g. https://school-mgmt-frontend.onrender.com
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: 587
+      - key: EMAIL_USER
+        sync: false
+      - key: EMAIL_PASS
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: FIREBASE_PROJECT_ID
+        sync: false
+
+  # -------------------------------------------------------------
+  # 2. FRONTEND SERVICE (React / Vite Static Site)
+  # -------------------------------------------------------------
+  - type: web
+    name: school-mgmt-frontend
+    env: static
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      # SPA Rewrite Rule so React Router paths (e.g. /login, /students) work without 404
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false # Set to your Render Backend URL e.g. https://school-mgmt-backend.onrender.com
