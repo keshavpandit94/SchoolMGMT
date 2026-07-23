@@ -28,11 +28,39 @@ export const getStaffById = async (req, res, next) => {
   }
 };
 
+// @desc    Update Staff Status (Active, On Leave, Suspended, Resigned, Retired)
+// @route   PATCH /api/staff/:id/status
+// @access  Private (Admin, Principal)
+export const updateStaffStatus = async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    const staff = await Staff.findById(req.params.id);
+
+    if (!staff) {
+      return res.status(404).json({ success: false, message: 'Staff profile not found' });
+    }
+
+    staff.status = status;
+    await staff.save();
+
+    const updatedStaff = await Staff.findById(req.params.id).populate('userId', 'name email role phone profilePicture');
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('staff_updated', updatedStaff);
+    }
+
+    res.status(200).json({ success: true, message: `Staff status updated to ${status}`, staff: updatedStaff });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Update staff profile
 // @route   PUT /api/staff/:id
 // @access  Private (Admin, Principal)
 export const updateStaff = async (req, res, next) => {
-  const { name, email, phone, department, roleDetails, shift } = req.body;
+  const { name, email, phone, department, roleDetails, shift, photoUrl, status } = req.body;
 
   try {
     const staff = await Staff.findById(req.params.id);
@@ -44,6 +72,8 @@ export const updateStaff = async (req, res, next) => {
     if (department !== undefined) staff.department = department;
     if (roleDetails !== undefined) staff.roleDetails = roleDetails;
     if (shift !== undefined) staff.shift = shift;
+    if (photoUrl !== undefined) staff.photoUrl = photoUrl;
+    if (status !== undefined) staff.status = status;
     await staff.save();
 
     // Update associated User fields
@@ -51,6 +81,7 @@ export const updateStaff = async (req, res, next) => {
     if (user) {
       if (name !== undefined) user.name = name;
       if (phone !== undefined) user.phone = phone;
+      if (photoUrl !== undefined) user.profilePicture = photoUrl;
       if (email !== undefined) {
         // Ensure email isn't taken by someone else
         const emailExists = await User.findOne({ email, _id: { $ne: user._id } });

@@ -22,7 +22,7 @@ const InventorySchema = new mongoose.Schema(
     category: {
       type: String,
       required: true,
-      trim: true, // e.g., Lab Equipment, Office Supplies, Sports Goods
+      trim: true,
     },
     condition: {
       type: String,
@@ -34,8 +34,12 @@ const InventorySchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    imageUrl: {
+      type: String,
+      trim: true,
+    },
     assignedTo: {
-      type: String, // Can be user name, student name, department name, etc.
+      type: String,
       default: 'Storage',
     },
     lastUpdatedBy: {

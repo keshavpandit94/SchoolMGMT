@@ -28,11 +28,39 @@ export const getTeacherById = async (req, res, next) => {
   }
 };
 
+// @desc    Update Teacher Status (Active, On Leave, Suspended, Resigned, Retired)
+// @route   PATCH /api/teachers/:id/status
+// @access  Private (Admin, Principal)
+export const updateTeacherStatus = async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    const teacher = await Teacher.findById(req.params.id);
+
+    if (!teacher) {
+      return res.status(404).json({ success: false, message: 'Teacher profile not found' });
+    }
+
+    teacher.status = status;
+    await teacher.save();
+
+    const updatedTeacher = await Teacher.findById(req.params.id).populate('userId', 'name email role phone profilePicture');
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('teacher_updated', updatedTeacher);
+    }
+
+    res.status(200).json({ success: true, message: `Teacher status updated to ${status}`, teacher: updatedTeacher });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Update teacher profile
 // @route   PUT /api/teachers/:id
 // @access  Private (Admin, Principal)
 export const updateTeacher = async (req, res, next) => {
-  const { name, email, phone, department, designation, qualifications, subjectsTaught } = req.body;
+  const { name, email, phone, department, designation, qualifications, subjectsTaught, photoUrl, status } = req.body;
 
   try {
     const teacher = await Teacher.findById(req.params.id);
@@ -45,6 +73,8 @@ export const updateTeacher = async (req, res, next) => {
     if (designation !== undefined) teacher.designation = designation;
     if (qualifications !== undefined) teacher.qualifications = qualifications;
     if (subjectsTaught !== undefined) teacher.subjectsTaught = subjectsTaught;
+    if (photoUrl !== undefined) teacher.photoUrl = photoUrl;
+    if (status !== undefined) teacher.status = status;
     await teacher.save();
 
     // Update associated User fields
@@ -52,6 +82,7 @@ export const updateTeacher = async (req, res, next) => {
     if (user) {
       if (name !== undefined) user.name = name;
       if (phone !== undefined) user.phone = phone;
+      if (photoUrl !== undefined) user.profilePicture = photoUrl;
       if (email !== undefined) {
         // Ensure email isn't taken by someone else
         const emailExists = await User.findOne({ email, _id: { $ne: user._id } });

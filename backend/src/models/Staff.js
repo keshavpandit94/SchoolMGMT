@@ -18,6 +18,15 @@ const StaffSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    photoUrl: {
+      type: String,
+      trim: true,
+    },
+    status: {
+      type: String,
+      enum: ['Active', 'On Leave', 'Suspended', 'Resigned', 'Retired'],
+      default: 'Active',
+    },
     joinedDate: {
       type: Date,
       default: Date.now,

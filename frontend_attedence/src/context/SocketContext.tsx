@@ -1,0 +1,71 @@
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { io, Socket } from 'socket.io-client';
+
+const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+interface SocketContextType {
+  socket: Socket | null;
+  isConnected: boolean;
+  emit: (eventName: string, data?: any) => void;
+}
+
+const SocketContext = createContext<SocketContextType>({
+  socket: null,
+  isConnected: false,
+  emit: () => {},
+});
+
+export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const socketRef = useRef<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+
+  useEffect(() => {
+    // Reuse existing socket connection if already active
+    if (socketRef.current && socketRef.current.connected) {
+      return;
+    }
+
+    // Create persistent WebSocket connection across all pages
+    const socket = io(SOCKET_URL, {
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+    });
+
+    socket.on('connect', () => {
+      console.log('🟢 Socket.io persistent attendance connection active:', socket.id);
+      setIsConnected(true);
+    });
+
+    socket.on('disconnect', (reason) => {
+      console.log('🔴 Socket.io disconnected:', reason);
+      setIsConnected(false);
+    });
+
+    socket.on('connect_error', (error) => {
+      console.warn('⚠️ Socket.io connection error:', error.message);
+    });
+
+    socketRef.current = socket;
+
+    return () => {
+      // Clean up connection when app unmounts
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
+  }, []);
+
+  const emit = (eventName: string, data?: any) => {
+    socketRef.current?.emit(eventName, data);
+  };
+
+  return (
+    <SocketContext.Provider value={{ socket: socketRef.current, isConnected, emit }}>
+      {children}
+    </SocketContext.Provider>
+  );
+};
+
+export const useSocketContext = () => useContext(SocketContext);

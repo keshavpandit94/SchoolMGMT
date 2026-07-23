@@ -13,6 +13,8 @@ import teacherRoutes from './routes/teacherRoutes.js';
 import staffRoutes from './routes/staffRoutes.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import attendanceRoutes from './routes/attendanceRoutes.js';
+import kioskRoutes from './routes/kioskRoutes.js';
 import { errorHandler, notFound } from './middlewares/errorMiddleware.js';
 
 // Load environment variables
@@ -110,6 +112,8 @@ app.use('/api/teachers', teacherRoutes);
 app.use('/api/staff', staffRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/upload', uploadRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/kiosk', kioskRoutes);
 
 // Error Middlewares
 app.use(notFound);

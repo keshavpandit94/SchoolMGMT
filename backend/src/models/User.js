@@ -18,7 +18,6 @@ const UserSchema = new mongoose.Schema(
     password: {
       type: String,
       required: function () {
-        // Password is only required if firebaseUid is not provided
         return !this.firebaseUid;
       },
     },
@@ -31,13 +30,17 @@ const UserSchema = new mongoose.Schema(
       type: String,
       trim: true,
     },
+    pinCode: {
+      type: String,
+      default: '1234',
+    },
     isVerified: {
       type: Boolean,
       default: false,
     },
     firebaseUid: {
       type: String,
-      sparse: true, // Allows multiple null/undefined values, but unique if present
+      sparse: true,
       unique: true,
     },
     profilePicture: {

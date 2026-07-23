@@ -70,6 +70,19 @@ const StudentSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
+    photoUrl: {
+      type: String,
+      trim: true,
+    },
+    status: {
+      type: String,
+      enum: ['Pending Approval', 'Active', 'On Leave', 'Suspended', 'Graduated'],
+      default: 'Active',
+    },
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
     academicRecords: [AcademicRecordSchema],
     attendance: [AttendanceSchema],
     createdBy: {
