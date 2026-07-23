@@ -142,8 +142,8 @@ export const login = async (req, res, next) => {
     if (!user && userCount === 0) {
       user = await User.create({
         name: 'System Admin',
-        email: "keshavpandit34567@gmail.com",
-        password: "12345678",
+        email,
+        password,
         role: 'Admin',
         isVerified: true,
       });

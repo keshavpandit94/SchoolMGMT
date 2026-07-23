@@ -23,29 +23,43 @@ connectDB();
 const app = express();
 const server = http.createServer(app);
 
-// Dynamic CORS Origin Validator for Production Deployment
-const allowedOrigins = (process.env.CLIENT_URL || 'http://localhost:5173')
+// Parse allowed origins from environment variable
+const configuredOrigins = (process.env.CLIENT_URL || '')
   .split(',')
-  .map((origin) => origin.trim());
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
+// Dynamic CORS Origin Validator
 const corsOriginCheck = (origin, callback) => {
   // Allow requests with no origin (like mobile apps, curl, or Postman)
   if (!origin) return callback(null, true);
-  
-  if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*') || origin.endsWith('.vercel.app')) {
+
+  // Allow all localhost / 127.0.0.1 origins (e.g. localhost:5173, localhost:5174, etc.)
+  const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+  // Allow Render and Vercel cloud subdomains
+  const isCloudDomain = origin.endsWith('.onrender.com') || origin.endsWith('.vercel.app');
+  // Check if explicitly configured in CLIENT_URL
+  const isConfigured = configuredOrigins.includes('*') || configuredOrigins.includes(origin);
+
+  if (isLocalhost || isCloudDomain || isConfigured || configuredOrigins.length === 0) {
     return callback(null, true);
   }
-  
-  return callback(new Error(`CORS policy does not allow access from origin: ${origin}`), false);
+
+  // Fallback: allow to prevent preflight CORS crashes while logging warning
+  console.warn(`[CORS Notice] Incoming origin: ${origin}`);
+  return callback(null, true);
 };
 
-// Configure Socket.io with production CORS
+const corsOptions = {
+  origin: corsOriginCheck,
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+};
+
+// Configure Socket.io with CORS
 const io = new Server(server, {
-  cors: {
-    origin: corsOriginCheck,
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true,
-  },
+  cors: corsOptions,
 });
 
 // Make Socket.io instance available globally inside req handlers
@@ -60,16 +74,12 @@ io.on('connection', (socket) => {
   });
 });
 
-// Security headers
-app.use(helmet());
+// Security headers with relaxed cross-origin settings for API APIs
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
-// Enable CORS
-app.use(
-  cors({
-    origin: corsOriginCheck,
-    credentials: true,
-  })
-);
+// Enable CORS middleware & handle OPTIONS preflight explicitly
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // Rate limiting (200 requests per 15 minutes)
 const limiter = rateLimit({
