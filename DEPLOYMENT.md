@@ -1,55 +1,76 @@
-# 🚀 Complete Render.com Dual Deployment Guide
+# 🐳 Docker + MongoDB Atlas Production Deployment Guide (Render)
 
-This guide explains how to deploy **BOTH the Backend API and the Frontend Web App** on Render.com using the included `render.yaml` Blueprint.
+This project is configured to run as a **Docker container** on Render, connected to **MongoDB Atlas Cloud Database**.
 
 ---
 
-## Step 1: Push Code to GitHub / GitLab
+## 🏗️ Architecture Overview
 
-Make sure your project repository is committed and pushed to GitHub.
-
-```bash
-git add .
-git commit -m "Configure dual deployment for Render"
-git push origin main
+```
+ ┌───────────────────────────┐         ┌───────────────────────────┐
+ │   Render Static Site      │         │   Render Docker Web       │
+ │   (React + Vite Frontend) │  ────>  │   (Express + Mongoose)    │
+ └───────────────────────────┘         └─────────────┬─────────────┘
+                                                     │
+                                                     ▼
+                                       ┌───────────────────────────┐
+                                       │   MongoDB Atlas Cloud     │
+                                       │   (Managed MongoDB DB)    │
+                                       └───────────────────────────┘
 ```
 
 ---
 
-## Step 2: Deploy Both Services via Render Blueprint
+## Step 1: Set up MongoDB Atlas (Free Cloud Database)
 
-1. Go to [Render Dashboard](https://dashboard.render.com).
-2. Click **New +** (top right) → Select **Blueprint**.
-3. Connect your GitHub repository.
-4. Render will automatically read `render.yaml` and create **2 services**:
-   - 🔹 **`school-mgmt-backend`** (Node.js Web Service)
-   - 🔹 **`school-mgmt-frontend`** (Static Site with SPA rewrite rules)
-
----
-
-## Step 3: Configure Environment Variables in Render Dashboard
-
-Fill in the environment variables for each service in the Render UI:
-
-### A. For `school-mgmt-backend`:
-| Key | Required Value / Description |
-|---|---|
-| `MONGO_URI` | Your MongoDB Atlas connection URI (e.g., `mongodb+srv://user:pass@cluster.mongodb.net/school_mgmt`) |
-| `CLIENT_URL` | Your live frontend Render URL (e.g., `https://school-mgmt-frontend.onrender.com`) |
-| `EMAIL_USER` | `pkeshav282@gmail.com` |
-| `EMAIL_PASS` | `zovi lqbo mdgm xsmr` (Google 16-char App Password) |
-| `EMAIL_FROM` | `pkeshav282@gmail.com` |
-
-### B. For `school-mgmt-frontend`:
-| Key | Required Value / Description |
-|---|---|
-| `VITE_API_URL` | Your live backend Render URL (e.g., `https://school-mgmt-backend.onrender.com`) |
+1. Sign up / Log in to [MongoDB Atlas](https://www.mongodb.com/cloud/atlas).
+2. Create a **Free M0 Shared Cluster**.
+3. Under **Database Access**: Create a Database User (Username & Password).
+4. Under **Network Access**: Add IP Address `0.0.0.0/0` (Allow Access from Anywhere).
+5. Click **Database** ➔ **Connect** ➔ **Drivers** (Node.js) and copy your connection string:
+   ```text
+   mongodb+srv://<username>:<password>@cluster0.xxxx.mongodb.net/school_mgmt?retryWrites=true&w=majority
+   ```
 
 ---
 
-## Step 4: Click "Apply" & Verify
+## Step 2: Deploy to Render via Blueprint (`render.yaml`)
 
-1. Render will build and deploy both services automatically.
-2. Open your live frontend URL (`https://school-mgmt-frontend.onrender.com`).
-3. Login using `admin@school.com` / `password123` or your credentials.
-4. Test OTP email delivery to your Gmail inbox!
+1. Commit and push your code to **GitHub**:
+   ```bash
+   git add .
+   git commit -m "Update project for Docker + MongoDB Atlas deployment"
+   git push origin main
+   ```
+
+2. Open [Render Dashboard](https://dashboard.render.com).
+3. Click **New +** ➔ **Blueprint**.
+4. Connect your GitHub repository. Render will automatically read `render.yaml` and create 2 services:
+   - 🐳 `school-mgmt-backend` (Docker Web Service)
+   - ⚡ `school-mgmt-frontend` (Static Site)
+
+5. Fill in Environment Variables in Render Dashboard for `school-mgmt-backend`:
+
+| Key | Value / Description |
+|---|---|
+| `MONGO_URI` | `mongodb+srv://<user>:<pass>@cluster0.xxxx.mongodb.net/school_mgmt?retryWrites=true&w=majority` |
+| `CLIENT_URL` | `https://school-mgmt-frontend.onrender.com` |
+| `EMAIL_HOST` | `smtp.gmail.com` |
+| `EMAIL_PORT` | `587` |
+| `EMAIL_USER` | `your_gmail@gmail.com` |
+| `EMAIL_PASS` | `your_16_char_google_app_password` |
+| `EMAIL_FROM` | `your_gmail@gmail.com` |
+
+6. Click **Apply**. Render will build the Docker container for the backend and deploy the React frontend static site.
+
+---
+
+## Step 3: Local Docker Testing (Optional)
+
+If you want to test running the Docker container locally connected to MongoDB Atlas:
+
+```bash
+cd backend
+docker build -t school-backend .
+docker run -p 5000:5000 -e MONGO_URI="mongodb+srv://<user>:<pass>@cluster0.xxxx.mongodb.net/school_mgmt?retryWrites=true&w=majority" school-backend
+```

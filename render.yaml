@@ -1,13 +1,13 @@
 services:
   # -------------------------------------------------------------
-  # 1. BACKEND SERVICE (Node.js / Express / Socket.io API)
+  # 1. BACKEND DOCKER SERVICE (Express + Mongoose + Socket.io)
   # -------------------------------------------------------------
   - type: web
     name: school-mgmt-backend
-    env: node
+    env: docker
     rootDir: backend
-    buildCommand: npm install
-    startCommand: npm start
+    dockerfilePath: Dockerfile
+    dockerContext: backend
     healthCheckPath: /
     envVars:
       - key: PORT
@@ -15,11 +15,11 @@ services:
       - key: NODE_ENV
         value: production
       - key: MONGO_URI
-        sync: false # Enter your MongoDB Atlas connection string in Render Dashboard
+        sync: false # MongoDB Atlas URI: mongodb+srv://user:pass@cluster.mongodb.net/school_mgmt
       - key: JWT_SECRET
         generateValue: true
       - key: CLIENT_URL
-        sync: false # Set to your Render Frontend URL e.g. https://school-mgmt-frontend.onrender.com
+        sync: false # Render Frontend URL: https://school-mgmt-frontend.onrender.com
       - key: EMAIL_HOST
         value: smtp.gmail.com
       - key: EMAIL_PORT
@@ -34,7 +34,7 @@ services:
         sync: false
 
   # -------------------------------------------------------------
-  # 2. FRONTEND SERVICE (React / Vite Static Site)
+  # 2. FRONTEND STATIC SITE (React + Vite SPA)
   # -------------------------------------------------------------
   - type: web
     name: school-mgmt-frontend
@@ -43,10 +43,10 @@ services:
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     routes:
-      # SPA Rewrite Rule so React Router paths (e.g. /login, /students) work without 404
+      # SPA Rewrite Rule for React Router (prevents 404 on refresh)
       - type: rewrite
         source: /*
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        sync: false # Set to your Render Backend URL e.g. https://school-mgmt-backend.onrender.com
+        sync: false # Render Backend URL: https://school-mgmt-backend.onrender.com
