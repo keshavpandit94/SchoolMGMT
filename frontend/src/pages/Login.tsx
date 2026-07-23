@@ -12,17 +12,17 @@ import {
   InputAdornment,
   IconButton,
 } from '@mui/material';
-import { Mail, Lock, LogIn, KeyRound, Chrome, ChevronLeft } from 'lucide-react';
+import { Mail, Lock, LogIn, KeyRound, ChevronLeft } from 'lucide-react';
 
 const Login: React.FC = () => {
-  const { login, verifyOtp, loginWithFirebase, otpRequired, otpEmail, clearOtpState } = useAuth();
+  const { login, verifyOtp, otpRequired, otpEmail, clearOtpState } = useAuth();
   const navigate = useNavigate();
 
   // Form states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [otpCode, setOtpCode] = useState('');
-  
+
   // UX states
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -68,45 +68,6 @@ const Login: React.FC = () => {
     }
   };
 
-  // Handle Google Login via Firebase
-  const handleGoogleLogin = async () => {
-    setError(null);
-    setLoading(true);
-    try {
-      // Import Firebase Auth directly to prevent initialization race conditions
-      const { auth, googleProvider } = await import('../services/firebase');
-      const { signInWithPopup } = await import('firebase/auth');
-
-      if (!auth || !googleProvider) {
-        // Fallback for simulated/mock Google login if Firebase config is missing
-        console.log('Firebase auth mock fallback active.');
-        const res = await loginWithFirebase('mock-firebase-token-admin');
-        setLoading(false);
-        if (res.success) {
-          navigate('/dashboard');
-        } else {
-          setError(res.message);
-        }
-        return;
-      }
-
-      const result = await signInWithPopup(auth, googleProvider);
-      const token = await result.user.getIdToken();
-      
-      const res = await loginWithFirebase(token);
-      setLoading(false);
-      if (res.success) {
-        navigate('/dashboard');
-      } else {
-        setError(res.message);
-      }
-    } catch (err: any) {
-      console.error(err);
-      setLoading(false);
-      setError(err.message || 'Google authentication failed');
-    }
-  };
-
   // Helper for test logins (instant credential fill for graders/developers)
   const handleQuickLogin = (role: 'admin' | 'teacher') => {
     if (role === 'admin') {
@@ -127,7 +88,8 @@ const Login: React.FC = () => {
         alignItems: 'center',
         justifyContent: 'center',
         px: 2,
-        backgroundImage: 'radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.15) 0%, transparent 40%)',
+        backgroundImage:
+          'radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.15) 0%, transparent 40%)',
       }}
     >
       <Card
@@ -173,7 +135,7 @@ const Login: React.FC = () => {
         {!otpRequired ? (
           // Credentials form
           <form onSubmit={handleCredentialsSubmit}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mb: 3 }}>
               <TextField
                 label="Email Address"
                 variant="outlined"
@@ -244,31 +206,6 @@ const Login: React.FC = () => {
               </Button>
             </Box>
 
-            <Box sx={{ my: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1 }}>
-              <Box sx={{ flex: 1, height: '1px', bgcolor: 'rgba(255,255,255,0.08)' }} />
-              <Typography variant="caption" sx={{ color: '#64748B' }}>OR CONNECT WITH</Typography>
-              <Box sx={{ flex: 1, height: '1px', bgcolor: 'rgba(255,255,255,0.08)' }} />
-            </Box>
-
-            {/* OAuth Login buttons */}
-            <Button
-              variant="outlined"
-              fullWidth
-              onClick={handleGoogleLogin}
-              startIcon={<Chrome size={20} />}
-              sx={{
-                color: '#F8FAFC',
-                borderColor: 'rgba(255,255,255,0.1)',
-                '&:hover': { borderColor: 'rgba(255,255,255,0.25)', bgcolor: 'rgba(255,255,255,0.02)' },
-                textTransform: 'none',
-                py: 1.2,
-                borderRadius: 2.5,
-                mb: 4,
-              }}
-            >
-              Sign in with Google
-            </Button>
-
             {/* Quick-fill helper for convenience */}
             <Box
               sx={{
@@ -280,7 +217,7 @@ const Login: React.FC = () => {
               }}
             >
               <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', mb: 1.5 }}>
-                DEVELOPER DEMO CREDENTIALS:
+                DEMO QUICK LOGIN:
               </Typography>
               <Box sx={{ display: 'flex', justifyContent: 'space-around', gap: 1 }}>
                 <Button
@@ -311,7 +248,7 @@ const Login: React.FC = () => {
                 <Typography variant="body2" sx={{ ml: 0.5 }}>Back to credentials</Typography>
               </IconButton>
               <Typography variant="body2" sx={{ color: '#94A3B8' }}>
-                We have emailed a one-time verification passcode (OTP) to <strong>{otpEmail}</strong>. Please check your inbox or server logs and enter the code below.
+                We have sent a one-time verification passcode (OTP) to <strong>{otpEmail}</strong>. Please check your inbox or server logs and enter the code below.
               </Typography>
             </Box>
 

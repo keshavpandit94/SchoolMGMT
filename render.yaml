@@ -24,7 +24,11 @@ services:
         sync: false # Get free API Key at https://resend.com
       - key: EMAIL_FROM
         value: onboarding@resend.dev
-      - key: FIREBASE_PROJECT_ID
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
         sync: false
 
   # -------------------------------------------------------------

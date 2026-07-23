@@ -25,19 +25,18 @@ services:
       - MONGO_URI=mongodb://mongodb:27017/school_mgmt
       - JWT_SECRET=supersecretjwtkey12345!
       - CLIENT_URL=http://localhost:5173
-      - EMAIL_HOST=smtp.ethereal.email
-      - EMAIL_PORT=587
-      - EMAIL_USER=ceasar.auer@ethereal.email
-      - EMAIL_PASS=K6r1TS4kJdu25HvAn8
-      - EMAIL_FROM=ceasar.auer@ethereal.email
-      - FIREBASE_PROJECT_ID=school-mgmt-13917
+      - RESEND_API_KEY=
+      - EMAIL_FROM=onboarding@resend.dev
+      - CLOUDINARY_CLOUD_NAME=
+      - CLOUDINARY_API_KEY=
+      - CLOUDINARY_API_SECRET=
     depends_on:
       - mongodb
     networks:
       - sms_network
 
   frontend:
-    # Use node image directly for local hot-reload development (no build/Nginx needed)
+    # Use node image directly for local hot-reload development
     image: node:20-alpine
     container_name: sms_frontend
     working_dir: /app
@@ -48,7 +47,6 @@ services:
       - ./frontend:/app
       - /app/node_modules
     environment:
-      # Use backend service name for container-to-container communication
       - VITE_API_URL=http://backend:5000
     depends_on:
       - backend

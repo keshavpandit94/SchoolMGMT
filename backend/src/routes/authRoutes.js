@@ -4,7 +4,6 @@ import {
   registerUser,
   login,
   verifyOTP,
-  firebaseLogin,
   logout,
   getMe,
 } from '../controllers/authController.js';
@@ -16,7 +15,6 @@ router.post('/setup-admin', setupAdmin);
 router.post('/register', protect, restrictTo('Admin', 'Principal'), registerUser);
 router.post('/login', login);
 router.post('/verify-otp', verifyOTP);
-router.post('/firebase', firebaseLogin);
 router.post('/logout', protect, logout);
 router.get('/me', protect, getMe);
 

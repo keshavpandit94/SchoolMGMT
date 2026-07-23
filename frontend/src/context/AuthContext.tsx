@@ -20,7 +20,6 @@ interface AuthContextType {
   otpEmail: string | null;
   login: (email: string, password: string) => Promise<{ success: boolean; message: string }>;
   verifyOtp: (email: string, otp: string) => Promise<{ success: boolean; message: string }>;
-  loginWithFirebase: (idToken: string) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void>;
   clearOtpState: () => void;
 }
@@ -44,7 +43,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           setToken(storedToken);
           setUser(JSON.parse(storedUser));
-          
+
           // Verify session freshness with server
           const response = await axiosInstance.get('/api/auth/me');
           if (response.data.success) {
@@ -88,10 +87,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const response = await axiosInstance.post('/api/auth/verify-otp', { email, otp });
       if (response.data.success) {
         const { token: jwtToken, user: loggedUser } = response.data;
-        
+
         localStorage.setItem('token', jwtToken);
         localStorage.setItem('user', JSON.stringify(loggedUser));
-        
+
         setToken(jwtToken);
         setUser(loggedUser);
         setOtpRequired(false);
@@ -103,28 +102,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return {
         success: false,
         message: error.response?.data?.message || 'Verification failed. Try again.',
-      };
-    }
-  };
-
-  const loginWithFirebase = async (idToken: string) => {
-    try {
-      const response = await axiosInstance.post('/api/auth/firebase', { token: idToken });
-      if (response.data.success) {
-        const { token: jwtToken, user: loggedUser } = response.data;
-        
-        localStorage.setItem('token', jwtToken);
-        localStorage.setItem('user', JSON.stringify(loggedUser));
-        
-        setToken(jwtToken);
-        setUser(loggedUser);
-        return { success: true, message: 'Google Auth Login successful' };
-      }
-      return { success: false, message: response.data.message || 'Firebase login failed' };
-    } catch (error: any) {
-      return {
-        success: false,
-        message: error.response?.data?.message || 'Firebase login failed. contact Administrator.',
       };
     }
   };
@@ -162,7 +139,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         otpEmail,
         login,
         verifyOtp,
-        loginWithFirebase,
         logout,
         clearOtpState,
       }}

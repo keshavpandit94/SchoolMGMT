@@ -4,7 +4,6 @@ import User from '../models/User.js';
 import Teacher from '../models/Teacher.js';
 import Staff from '../models/Staff.js';
 import { sendOTPEmail } from '../config/nodemailer.js';
-import { verifyFirebaseToken } from '../utils/firebaseVerifier.js';
 
 // Helper to generate JWT
 const generateToken = (id) => {
@@ -64,9 +63,9 @@ export const setupAdmin = async (req, res, next) => {
   }
 };
 
-// @desc    Register a new user (Admin/Principal only)
+// @desc    Register User (Admin / Principal only)
 // @route   POST /api/auth/register
-// @access  Private (Admin, Principal)
+// @access  Private (Admin / Principal)
 export const registerUser = async (req, res, next) => {
   const { name, email, password, role, phone, department, designation, qualifications, subjectsTaught, roleDetails, shift } = req.body;
 
@@ -76,17 +75,14 @@ export const registerUser = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'User already exists with this email' });
     }
 
-    // Create User record
-    const user = new User({
+    const user = await User.create({
       name,
       email,
-      password,
+      password: password || 'defaultPass123',
       role,
       phone,
-      isVerified: false,
+      isVerified: true,
     });
-
-    await user.save();
 
     // Create linked record depending on role
     if (role === 'Teacher') {
@@ -190,30 +186,37 @@ export const verifyOTP = async (req, res, next) => {
   const { email, otp } = req.body;
 
   if (!email || !otp) {
-    return res.status(400).json({ success: false, message: 'Please provide email and OTP code' });
+    return res.status(400).json({ success: false, message: 'Please provide email and OTP' });
   }
 
   try {
     const user = await User.findOne({ email });
+
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
-    if (!user.otp || user.otp !== otp || Date.now() > user.otpExpires) {
-      return res.status(400).json({ success: false, message: 'Invalid or expired OTP' });
+    if (!user.otp || !user.otpExpires) {
+      return res.status(400).json({ success: false, message: 'No OTP requested for this user' });
     }
 
-    // Clear OTP fields and set verified
+    if (Date.now() > user.otpExpires) {
+      return res.status(400).json({ success: false, message: 'OTP has expired. Please log in again.' });
+    }
+
+    if (user.otp !== otp) {
+      return res.status(400).json({ success: false, message: 'Invalid OTP passcode' });
+    }
+
+    // Clear OTP after successful verification
     user.otp = undefined;
     user.otpExpires = undefined;
-    if (!user.isVerified) {
-      user.isVerified = true;
-    }
+    user.isVerified = true;
     await user.save();
 
     const token = generateToken(user._id);
 
-    // Set HttpOnly cookie
+    // Set cookie
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -224,75 +227,6 @@ export const verifyOTP = async (req, res, next) => {
     res.status(200).json({
       success: true,
       token,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone,
-        isVerified: user.isVerified,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Firebase Auth (Google OAuth & Mobile OTP token verification)
-// @route   POST /api/auth/firebase
-// @access  Public
-export const firebaseLogin = async (req, res, next) => {
-  const { token: idToken } = req.body;
-
-  if (!idToken) {
-    return res.status(400).json({ success: false, message: 'Firebase ID token is required' });
-  }
-
-  try {
-    const decoded = await verifyFirebaseToken(idToken);
-
-    // Check if user already exists
-    let user = await User.findOne({ email: decoded.email });
-
-    // Bootstrap first user as Admin if no users exist
-    const userCount = await User.countDocuments({});
-    if (!user && userCount === 0) {
-      user = await User.create({
-        name: decoded.name,
-        email: decoded.email,
-        role: 'Admin',
-        firebaseUid: decoded.uid,
-        isVerified: true,
-      });
-    }
-
-    if (!user) {
-      return res.status(403).json({
-        success: false,
-        message: 'Your email is not registered in the school database. Please contact an Administrator.',
-      });
-    }
-
-    // If user exists but firebaseUid is not linked, link it
-    if (!user.firebaseUid) {
-      user.firebaseUid = decoded.uid;
-      user.isVerified = true;
-      await user.save();
-    }
-
-    const jwtToken = generateToken(user._id);
-
-    // Set cookie
-    res.cookie('token', jwtToken, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
-    });
-
-    res.status(200).json({
-      success: true,
-      token: jwtToken,
       user: {
         _id: user._id,
         name: user.name,
