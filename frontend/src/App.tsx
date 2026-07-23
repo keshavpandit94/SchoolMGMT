@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import DashboardLayout from './components/DashboardLayout';
+import ScrollToTopAndProgress from './components/ScrollToTopAndProgress';
 
 // Pages
 import Login from './pages/Login';
@@ -27,6 +28,9 @@ const App: React.FC = () => {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <Router>
+          {/* Automatically scrolls to top & displays top progress bar on route change */}
+          <ScrollToTopAndProgress />
+
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={<Login />} />
@@ -42,7 +46,7 @@ const App: React.FC = () => {
                 </ProtectedRoute>
               }
             />
-            
+
             <Route
               path="/students"
               element={
@@ -53,7 +57,7 @@ const App: React.FC = () => {
                 </ProtectedRoute>
               }
             />
-            
+
             <Route
               path="/teachers"
               element={
@@ -64,7 +68,7 @@ const App: React.FC = () => {
                 </ProtectedRoute>
               }
             />
-            
+
             <Route
               path="/staff"
               element={
@@ -75,7 +79,7 @@ const App: React.FC = () => {
                 </ProtectedRoute>
               }
             />
-            
+
             <Route
               path="/inventory"
               element={
@@ -89,7 +93,7 @@ const App: React.FC = () => {
 
             {/* Default redirect to Dashboard */}
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            
+
             {/* Fallback */}
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>

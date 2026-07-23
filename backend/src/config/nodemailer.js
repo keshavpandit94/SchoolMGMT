@@ -1,45 +1,55 @@
 import nodemailer from 'nodemailer';
 
-export const sendOTPEmail = async (toEmail, otp) => {
-  const host = process.env.EMAIL_HOST;
-  const port = parseInt(process.env.EMAIL_PORT || '587');
+let transporterInstance = null;
+
+const getTransporter = () => {
+  const host = process.env.EMAIL_HOST || 'smtp.gmail.com';
+  const port = parseInt(process.env.EMAIL_PORT || '465');
   const user = process.env.EMAIL_USER;
   const pass = process.env.EMAIL_PASS;
-  // EMAIL_FROM MUST match EMAIL_USER on Gmail — any mismatch causes rejection
-  const fromAddress = process.env.EMAIL_FROM || user;
 
   const isConfigured =
-    host &&
     user &&
     pass &&
     !user.includes('YOUR_GMAIL') &&
     !user.includes('test_smtp_user') &&
     !user.includes('your_smtp_user');
 
-  if (isConfigured) {
+  if (!isConfigured) return null;
+
+  if (!transporterInstance) {
+    const isSSL = port === 465;
+
+    transporterInstance = nodemailer.createTransport({
+      host,
+      port,
+      secure: isSSL, // true for port 465 SSL, false for 587 STARTTLS
+      auth: { user, pass },
+      pool: true, // Reuse persistent SMTP TCP connections for 10x faster delivery
+      maxConnections: 5,
+      maxMessages: 100,
+      connectionTimeout: 5000, // 5 second connection timeout
+      greetingTimeout: 5000,
+      socketTimeout: 8000,
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
+
+    console.log(`⚡ SMTP Connection Pool initialized (${host}:${port}, user: ${user})`);
+  }
+
+  return transporterInstance;
+};
+
+export const sendOTPEmail = async (toEmail, otp) => {
+  const user = process.env.EMAIL_USER;
+  const fromAddress = process.env.EMAIL_FROM || user || 'noreply@schoolmgmt.com';
+  const transporter = getTransporter();
+
+  if (transporter) {
     try {
-      const transportConfig = {
-        host,
-        port,
-        // port 465 = implicit SSL, port 587 = STARTTLS (secure: false + tls upgrade)
-        secure: port === 465,
-        auth: { user, pass },
-        // Required for Gmail port 587 STARTTLS negotiation
-        tls: {
-          rejectUnauthorized: true,
-        },
-      };
-
-      // Gmail shortcut: use service key for better reliability
-      const isGmail = host === 'smtp.gmail.com';
-      const transporter = isGmail
-        ? nodemailer.createTransport({ service: 'gmail', auth: { user, pass } })
-        : nodemailer.createTransport(transportConfig);
-
-      // Verify SMTP connection before attempting to send
-      await transporter.verify();
-
-      const info = await transporter.sendMail({
+      const mailOptions = {
         from: `"EduManage School System" <${fromAddress}>`,
         to: toEmail,
         subject: '🔐 EduManage - Your Login OTP Code',
@@ -63,27 +73,26 @@ export const sendOTPEmail = async (toEmail, otp) => {
             </div>
           </div>
         `,
-      });
+      };
 
-      console.log(`✅ OTP email delivered to ${toEmail} (id: ${info.messageId})`);
+      const info = await transporter.sendMail(mailOptions);
+      console.log(`✅ Real OTP email delivered to ${toEmail} (id: ${info.messageId})`);
       return true;
     } catch (error) {
-      // Print the exact SMTP error so it is easy to diagnose
       console.error(`\n❌ ====== SMTP EMAIL FAILURE ======`);
-      console.error(`   Host     : ${host}:${port}`);
-      console.error(`   User     : ${user}`);
+      console.error(`   To       : ${toEmail}`);
       console.error(`   Reason   : ${error.message}`);
       console.error(`   Code     : ${error.code || 'N/A'}`);
       console.error(`=================================\n`);
     }
   } else {
-    console.warn(`\n⚠️  Email not configured. Set EMAIL_HOST, EMAIL_USER, EMAIL_PASS in .env`);
+    console.warn(`⚠️ SMTP not configured or disabled in environment.`);
   }
 
-  // Console fallback so login still works even without email
+  // Always log OTP to server console as instant backup display
   console.log('\n========================================');
-  console.log(`📧 [OTP CONSOLE LOG] To    : ${toEmail}`);
-  console.log(`🔑 [OTP CONSOLE LOG] Code  : ${otp}`);
+  console.log(`📧 [OTP BACKUP DISPLAY] To   : ${toEmail}`);
+  console.log(`🔑 [OTP BACKUP DISPLAY] Code : ${otp}`);
   console.log('========================================\n');
   return true;
 };

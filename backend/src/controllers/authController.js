@@ -168,10 +168,12 @@ export const login = async (req, res, next) => {
     user.otpExpires = otpExpires;
     await user.save();
 
-    // Send OTP email
-    await sendOTPEmail(user.email, otp);
+    // Send OTP email asynchronously in the background without blocking the HTTP response
+    sendOTPEmail(user.email, otp).catch((err) =>
+      console.error(`[Background Email Error] ${err.message}`)
+    );
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'OTP sent to email. Please verify to complete login.',
       email: user.email,
