@@ -20,16 +20,10 @@ services:
         generateValue: true
       - key: CLIENT_URL
         sync: false # Render Frontend URL: https://school-mgmt-frontend.onrender.com
-      - key: EMAIL_HOST
-        value: smtp.gmail.com
-      - key: EMAIL_PORT
-        value: 465
-      - key: EMAIL_USER
-        sync: false
-      - key: EMAIL_PASS
-        sync: false
+      - key: RESEND_API_KEY
+        sync: false # Get free API Key at https://resend.com
       - key: EMAIL_FROM
-        sync: false
+        value: onboarding@resend.dev
       - key: FIREBASE_PROJECT_ID
         sync: false
 

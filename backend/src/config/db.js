@@ -8,20 +8,18 @@ const connectDB = async () => {
 
   const mongoUri = process.env.MONGO_URI;
 
-  if (!mongoUri && process.env.NODE_ENV === 'production') {
-    console.error('\n❌ CRITICAL PRODUCTION ERROR: MONGO_URI is missing!');
-    console.error('Render cannot connect to 127.0.0.1 in production mode.');
-    console.error('👉 Please set MONGO_URI in your Render Dashboard Environment Variables with a MongoDB Atlas cloud URI.\n');
+  if (!mongoUri) {
+    console.error('\n❌ CRITICAL DATABASE CONFIG ERROR: MONGO_URI is missing!');
+    console.error('👉 Please set MONGO_URI in your .env or Render Dashboard Environment Variables with your MongoDB Atlas cloud URI:');
+    console.error('   e.g. MONGO_URI=mongodb+srv://<user>:<password>@cluster0.xxxx.mongodb.net/school_mgmt?retryWrites=true&w=majority\n');
     process.exit(1);
   }
 
-  const connString = mongoUri || 'mongodb://127.0.0.1:27017/school_mgmt';
-
   try {
-    const conn = await mongoose.connect(connString);
-    console.log(`✅ MongoDB Connected successfully: ${conn.connection.host}`);
+    const conn = await mongoose.connect(mongoUri);
+    console.log(`✅ MongoDB Atlas Connected successfully: ${conn.connection.host}`);
   } catch (error) {
-    console.error(`❌ Error connecting to MongoDB: ${error.message}`);
+    console.error(`❌ MongoDB Atlas Connection Error: ${error.message}`);
     process.exit(1);
   }
 };
