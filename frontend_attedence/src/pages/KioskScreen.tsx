@@ -117,24 +117,25 @@ const KioskScreen: React.FC = () => {
         ? extractFacialDescriptorFromCanvas(videoRef.current)
         : Array.from({ length: 128 }, (_, i) => Math.sin(i * 0.1) * 0.2);
 
-      // Fetch Geolocation tag if available
-      let geoTag = { latitude: 28.6139, longitude: 77.209, locationName: 'Main Entrance Kiosk Terminal' };
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            geoTag = {
-              latitude: pos.coords.latitude,
-              longitude: pos.coords.longitude,
-              locationName: 'GPS Verified Location Kiosk',
-            };
-          },
-          () => {}
-        );
+      // Capture face image frame from canvas
+      let capturedFaceImage = '';
+      if (videoRef.current) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 300;
+        canvas.height = 300;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(videoRef.current, 0, 0, 300, 300);
+          capturedFaceImage = canvas.toDataURL('image/jpeg', 0.85);
+        }
       }
+
+      const geoTag = { latitude: 28.6139, longitude: 77.209, locationName: 'Main Entrance Kiosk Terminal' };
 
       const res = await axios.post(`${API_URL}/api/kiosk/verify-face-attendance`, {
         staffId,
         liveFaceDescriptor: liveDescriptor,
+        faceImage: capturedFaceImage,
         geoTag,
       });
 
@@ -196,7 +197,7 @@ const KioskScreen: React.FC = () => {
           </Avatar>
           <Box>
             <Typography variant="h4" fontWeight="800" className="gradient-text" sx={{ fontFamily: 'Plus Jakarta Sans' }}>
-              Staff Attendance Kiosk
+              KCPPS - Staff Attendance Kiosk
             </Typography>
             <Typography variant="body2" sx={{ color: '#94A3B8' }}>
               Dual Verification Terminal: PIN Entry + 128-d Biometric Face Recognition
@@ -265,7 +266,7 @@ const KioskScreen: React.FC = () => {
               Step 1: Enter Personal PIN
             </Typography>
             <Typography variant="body2" sx={{ color: '#94A3B8', mb: 3 }}>
-              Enter your 4-to-6 digit security PIN on the on-screen numeric keypad below
+              Enter your 4-digit security PIN on the on-screen numeric keypad below
             </Typography>
 
             {pinError && (

@@ -112,7 +112,7 @@ const Login: React.FC = () => {
             className="gradient-text"
             sx={{ letterSpacing: 0.5, mb: 1, fontFamily: 'Plus Jakarta Sans' }}
           >
-            EduManage
+            KCPPS Admin
           </Typography>
           <Typography variant="body2" sx={{ color: '#94A3B8' }}>
             {otpRequired ? 'Multi-Factor Verification' : 'School Management System'}

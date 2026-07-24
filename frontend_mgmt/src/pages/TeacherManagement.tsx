@@ -27,8 +27,17 @@ import {
   Avatar,
   Menu,
   MenuItem,
+  FormControlLabel,
+  Switch,
+  Select,
+  FormControl,
+  InputLabel,
+  OutlinedInput,
+  Checkbox,
+  ListItemText,
+  InputAdornment,
 } from '@mui/material';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, UserCheck, KeyRound } from 'lucide-react';
 
 interface Teacher {
   _id: string;
@@ -37,6 +46,7 @@ interface Teacher {
     name: string;
     email: string;
     phone: string;
+    pinCode?: string;
     profilePicture?: string;
   };
   department: string;
@@ -45,12 +55,80 @@ interface Teacher {
   status: 'Active' | 'On Leave' | 'Suspended' | 'Resigned' | 'Retired';
   qualifications: string[];
   subjectsTaught: string[];
+  isClassTeacher?: boolean;
+  assignedClass?: string;
+  assignedSection?: string;
   joinedDate: string;
 }
 
+const DEPARTMENTS = [
+  'Science',
+  'Mathematics',
+  'English',
+  'Social Studies',
+  'Languages',
+  'Arts',
+  'Physical Education',
+  'Primary Education',
+  'Pre-Primary Education',
+  'Computer Science',
+  'Commerce',
+];
+
+const ROLES_DESIGNATIONS = [
+  'Class Teacher',
+  'Subject Teacher',
+  'Head of Department (HOD)',
+  'Senior Lecturer',
+  'Assistant Teacher',
+  'Vice Principal',
+  'Primary Coordinator',
+];
+
+const CLASSES = [
+  'Nursery',
+  'LKG',
+  'UKG',
+  'Class 1',
+  'Class 2',
+  'Class 3',
+  'Class 4',
+  'Class 5',
+  'Class 6',
+  'Class 7',
+  'Class 8',
+  'Class 9',
+  'Class 10',
+  'Class 11',
+  'Class 12',
+];
+
+const SECTIONS = ['A', 'B', 'C', 'D'];
+
+const AVAILABLE_SUBJECTS = [
+  'Mathematics',
+  'Physics',
+  'Chemistry',
+  'Biology',
+  'English',
+  'Hindi',
+  'Social Studies',
+  'History',
+  'Geography',
+  'Computer Science',
+  'Science',
+  'EVS',
+  'Art & Craft',
+  'Physical Education',
+  'Music',
+  'Commerce',
+  'Economics',
+  'Accountancy',
+];
+
 const TeacherManagement: React.FC = () => {
   const { user } = useAuth();
-  
+
   // Checking permissions: Admin & Principal can manage
   const canModify = user && ['Admin', 'Principal'].includes(user.role);
 
@@ -66,12 +144,16 @@ const TeacherManagement: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [pinCode, setPinCode] = useState('1234');
   const [password, setPassword] = useState(''); // Only for creation
-  const [department, setDepartment] = useState('');
-  const [designation, setDesignation] = useState('');
+  const [department, setDepartment] = useState('Science');
+  const [designation, setDesignation] = useState('Subject Teacher');
   const [photoUrl, setPhotoUrl] = useState('');
   const [qualificationsInput, setQualificationsInput] = useState('');
-  const [subjectsInput, setSubjectsInput] = useState('');
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [isClassTeacher, setIsClassTeacher] = useState(false);
+  const [assignedClass, setAssignedClass] = useState('Class 1');
+  const [assignedSection, setAssignedSection] = useState('A');
 
   // Status Menu state
   const [statusMenuAnchor, setStatusMenuAnchor] = useState<null | HTMLElement>(null);
@@ -103,23 +185,31 @@ const TeacherManagement: React.FC = () => {
       setName(teacher.userId.name);
       setEmail(teacher.userId.email);
       setPhone(teacher.userId.phone || '');
+      setPinCode(teacher.userId.pinCode || '1234');
       setPassword('');
-      setDepartment(teacher.department);
-      setDesignation(teacher.designation);
+      setDepartment(teacher.department || 'Science');
+      setDesignation(teacher.designation || 'Subject Teacher');
       setPhotoUrl(teacher.photoUrl || teacher.userId.profilePicture || '');
       setQualificationsInput(teacher.qualifications.join(', '));
-      setSubjectsInput(teacher.subjectsTaught.join(', '));
+      setSelectedSubjects(teacher.subjectsTaught || []);
+      setIsClassTeacher(Boolean(teacher.isClassTeacher));
+      setAssignedClass(teacher.assignedClass || 'Class 1');
+      setAssignedSection(teacher.assignedSection || 'A');
     } else {
       setEditingTeacher(null);
       setName('');
       setEmail('');
       setPhone('');
+      setPinCode('1234');
       setPassword('');
-      setDepartment('');
-      setDesignation('');
+      setDepartment('Science');
+      setDesignation('Subject Teacher');
       setPhotoUrl('');
       setQualificationsInput('');
-      setSubjectsInput('');
+      setSelectedSubjects([]);
+      setIsClassTeacher(false);
+      setAssignedClass('Class 1');
+      setAssignedSection('A');
     }
     setDialogOpen(true);
   };
@@ -133,35 +223,41 @@ const TeacherManagement: React.FC = () => {
     e.preventDefault();
     setError(null);
 
-    const qualifications = qualificationsInput.split(',').map((q) => q.trim()).filter((q) => q !== '');
-    const subjectsTaught = subjectsInput.split(',').map((s) => s.trim()).filter((s) => s !== '');
+    if (pinCode && !/^\d{4}$/.test(pinCode.trim())) {
+      setError('Security PIN must be exactly 4 numeric digits (e.g. 1234)');
+      return;
+    }
+
+    const qualifications = qualificationsInput
+      .split(',')
+      .map((q) => q.trim())
+      .filter((q) => q !== '');
+
+    const payload = {
+      name,
+      email,
+      phone,
+      pinCode,
+      department,
+      designation,
+      photoUrl,
+      qualifications,
+      subjectsTaught: selectedSubjects,
+      isClassTeacher,
+      assignedClass: isClassTeacher ? assignedClass : '',
+      assignedSection: isClassTeacher ? assignedSection : '',
+    };
 
     try {
       if (editingTeacher) {
         // Update teacher profile
-        await axiosInstance.put(`/api/teachers/${editingTeacher._id}`, {
-          name,
-          email,
-          phone,
-          department,
-          designation,
-          photoUrl,
-          qualifications,
-          subjectsTaught,
-        });
+        await axiosInstance.put(`/api/teachers/${editingTeacher._id}`, payload);
       } else {
         // Register new teacher
         await axiosInstance.post('/api/auth/register', {
-          name,
-          email,
-          phone,
+          ...payload,
           password,
           role: 'Teacher',
-          department,
-          designation,
-          photoUrl,
-          qualifications,
-          subjectsTaught,
         });
       }
       handleCloseDialog();
@@ -215,7 +311,7 @@ const TeacherManagement: React.FC = () => {
     <Box className="animate-fade-in">
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h5" fontWeight="bold" sx={{ color: '#F8FAFC', fontFamily: 'Plus Jakarta Sans' }}>
-          Faculty Directory
+          Faculty Directory & Teacher Assignments
         </Typography>
         {canModify && (
           <Button
@@ -224,7 +320,7 @@ const TeacherManagement: React.FC = () => {
             startIcon={<Plus size={18} />}
             sx={{ bgcolor: '#6366F1', '&:hover': { bgcolor: '#4F46E5' }, textTransform: 'none', borderRadius: 2 }}
           >
-            Register Teacher
+            Create Teacher Account
           </Button>
         )}
       </Box>
@@ -251,10 +347,11 @@ const TeacherManagement: React.FC = () => {
             <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
               <TableRow>
                 <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold' }}>Photo</TableCell>
-                <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold' }}>Name</TableCell>
-                <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold' }}>Department</TableCell>
+                <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold' }}>Name & Email</TableCell>
+                <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold' }}>Kiosk PIN</TableCell>
+                <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold' }}>Dept & Role</TableCell>
+                <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold' }}>Class Teacher Assignment</TableCell>
                 <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold' }}>Status</TableCell>
-                <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold' }}>Qualifications</TableCell>
                 <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold' }}>Subjects Taught</TableCell>
                 {canModify && <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold', textAlign: 'center' }}>Actions</TableCell>}
               </TableRow>
@@ -269,30 +366,52 @@ const TeacherManagement: React.FC = () => {
                   }}
                 >
                   <TableCell>
-                    <Avatar src={teacher.photoUrl || teacher.userId?.profilePicture} sx={{ width: 38, height: 38, bgcolor: '#6366F1' }}>
+                    <Avatar src={teacher.photoUrl || teacher.userId?.profilePicture} sx={{ width: 40, height: 40, bgcolor: '#6366F1' }}>
                       {teacher.userId?.name?.charAt(0)}
                     </Avatar>
                   </TableCell>
-                  <TableCell fontWeight="semibold">
-                    {teacher.userId?.name}
-                    <Typography variant="caption" sx={{ display: 'block', color: '#64748B' }}>
-                      {teacher.userId?.email}
+                  <TableCell>
+                    <Typography variant="body2" fontWeight="bold" sx={{ color: '#F8FAFC' }}>
+                      {teacher.userId?.name}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>
+                      {teacher.userId?.email} {teacher.userId?.phone ? `• ${teacher.userId?.phone}` : ''}
                     </Typography>
                   </TableCell>
-                  <TableCell>{teacher.department} ({teacher.designation})</TableCell>
+                  <TableCell>
+                    <Chip
+                      icon={<KeyRound size={13} color="#F59E0B" />}
+                      label={`PIN: ${teacher.userId?.pinCode || '1234'}`}
+                      size="small"
+                      sx={{ bgcolor: 'rgba(245, 158, 11, 0.15)', color: '#FBBF24', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 'bold', fontFamily: 'monospace' }}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight="medium">{teacher.department}</Typography>
+                    <Typography variant="caption" sx={{ color: '#818CF8' }}>{teacher.designation}</Typography>
+                  </TableCell>
+                  <TableCell>
+                    {teacher.isClassTeacher ? (
+                      <Chip
+                        icon={<UserCheck size={14} color="#10B981" />}
+                        label={`Class Teacher (${teacher.assignedClass}-${teacher.assignedSection})`}
+                        size="small"
+                        sx={{ bgcolor: 'rgba(16, 185, 129, 0.15)', color: '#34D399', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 'bold' }}
+                      />
+                    ) : (
+                      <Chip label="Subject Teacher" size="small" variant="outlined" sx={{ color: '#64748B', borderColor: 'rgba(255,255,255,0.1)' }} />
+                    )}
+                  </TableCell>
                   <TableCell>{renderStatusChip(teacher.status)}</TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                      {teacher.qualifications.map((q) => (
-                        <Chip key={q} label={q} size="small" sx={{ bgcolor: 'rgba(99, 102, 241, 0.1)', color: '#818CF8' }} />
-                      ))}
-                    </Box>
-                  </TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                      {teacher.subjectsTaught.map((s) => (
-                        <Chip key={s} label={s} size="small" variant="outlined" sx={{ borderColor: 'rgba(6, 182, 212, 0.3)', color: '#22D3EE' }} />
-                      ))}
+                      {teacher.subjectsTaught && teacher.subjectsTaught.length > 0 ? (
+                        teacher.subjectsTaught.map((s) => (
+                          <Chip key={s} label={s} size="small" variant="outlined" sx={{ borderColor: 'rgba(6, 182, 212, 0.3)', color: '#22D3EE', fontSize: 11 }} />
+                        ))
+                      ) : (
+                        <Typography variant="caption" sx={{ color: '#64748B' }}>None assigned</Typography>
+                      )}
                     </Box>
                   </TableCell>
                   {canModify && (
@@ -340,7 +459,7 @@ const TeacherManagement: React.FC = () => {
         <MenuItem onClick={() => handleStatusChange('Retired')} sx={{ color: '#9CA3AF' }}>⚪ Retired</MenuItem>
       </Menu>
 
-      {/* Register/Edit Teacher Dialog */}
+      {/* Create / Edit Teacher Dialog */}
       <Dialog
         open={dialogOpen}
         onClose={handleCloseDialog}
@@ -358,7 +477,7 @@ const TeacherManagement: React.FC = () => {
       >
         <form onSubmit={handleFormSubmit}>
           <DialogTitle sx={{ fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.05)', pb: 2 }}>
-            {editingTeacher ? 'Edit Faculty Member Details' : 'Register Faculty Member'}
+            {editingTeacher ? 'Edit Teacher Details & Security PIN' : 'Create New Teacher Account & Set PIN'}
           </DialogTitle>
           <DialogContent sx={{ mt: 2 }}>
             <Grid container spacing={2.5}>
@@ -371,6 +490,7 @@ const TeacherManagement: React.FC = () => {
                 />
               </Grid>
 
+              {/* Basic Info */}
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
@@ -384,7 +504,7 @@ const TeacherManagement: React.FC = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Email Address"
+                  label="Email Address (Login ID)"
                   type="email"
                   required
                   value={email}
@@ -401,11 +521,42 @@ const TeacherManagement: React.FC = () => {
                   sx={{ input: { color: '#FFF' }, label: { color: '#94A3B8' }, fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
                 />
               </Grid>
+
+              {/* Security PIN Set by Admin/Principal */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Security PIN Passcode (4 Digits)"
+                  required
+                  value={pinCode}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    setPinCode(val);
+                  }}
+                  placeholder="1234"
+                  helperText="4-digit PIN for Touchscreen Attendance Kiosk check-in"
+                  inputProps={{ maxLength: 4, pattern: '[0-9]*' }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <KeyRound size={18} color="#FBBF24" />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    input: { color: '#FBBF24', fontFamily: 'monospace', fontWeight: 'bold', fontSize: 16 },
+                    label: { color: '#94A3B8' },
+                    '& .MuiFormHelperText-root': { color: '#64748B', fontSize: 11 },
+                    fieldset: { borderColor: 'rgba(245, 158, 11, 0.3)' },
+                  }}
+                />
+              </Grid>
+
               {!editingTeacher && (
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
-                    label="Password"
+                    label="Account Password"
                     type="password"
                     required
                     value={password}
@@ -414,47 +565,136 @@ const TeacherManagement: React.FC = () => {
                   />
                 </Grid>
               )}
+
+              {/* Department & Role Selection */}
               <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Department"
-                  required
-                  placeholder="e.g. Science, Mathematics"
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  sx={{ input: { color: '#FFF' }, label: { color: '#94A3B8' }, fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
-                />
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: '#94A3B8' }}>Select Department</InputLabel>
+                  <Select
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    label="Select Department"
+                    sx={{ color: '#FFF', fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
+                  >
+                    {DEPARTMENTS.map((dept) => (
+                      <MenuItem key={dept} value={dept}>{dept}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
+
               <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Designation"
-                  required
-                  placeholder="e.g. Senior Lecturer, Head of Department"
-                  value={designation}
-                  onChange={(e) => setDesignation(e.target.value)}
-                  sx={{ input: { color: '#FFF' }, label: { color: '#94A3B8' }, fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
-                />
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: '#94A3B8' }}>Select Role / Designation</InputLabel>
+                  <Select
+                    value={designation}
+                    onChange={(e) => setDesignation(e.target.value)}
+                    label="Select Role / Designation"
+                    sx={{ color: '#FFF', fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
+                  >
+                    {ROLES_DESIGNATIONS.map((role) => (
+                      <MenuItem key={role} value={role}>{role}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
-              <Grid item xs={12} sm={6}>
+
+              {/* Multiple Subjects Selection */}
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: '#94A3B8' }}>Select Subjects Taught</InputLabel>
+                  <Select
+                    multiple
+                    value={selectedSubjects}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedSubjects(typeof val === 'string' ? val.split(',') : val);
+                    }}
+                    input={<OutlinedInput label="Select Subjects Taught" />}
+                    renderValue={(selected) => (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                        {selected.map((value) => (
+                          <Chip key={value} label={value} size="small" sx={{ bgcolor: '#6366F1', color: '#FFF' }} />
+                        ))}
+                      </Box>
+                    )}
+                    sx={{ color: '#FFF', fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
+                  >
+                    {AVAILABLE_SUBJECTS.map((subj) => (
+                      <MenuItem key={subj} value={subj}>
+                        <Checkbox checked={selectedSubjects.indexOf(subj) > -1} sx={{ color: '#818CF8' }} />
+                        <ListItemText primary={subj} />
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              {/* Qualifications */}
+              <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Qualifications (Comma separated)"
-                  placeholder="e.g. B.Ed, M.Sc in Physics"
+                  label="Academic Qualifications (Comma separated)"
+                  placeholder="e.g. B.Ed, M.Sc in Mathematics"
                   value={qualificationsInput}
                   onChange={(e) => setQualificationsInput(e.target.value)}
                   sx={{ input: { color: '#FFF' }, label: { color: '#94A3B8' }, fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
                 />
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Subjects Taught (Comma separated)"
-                  placeholder="e.g. Physics, Chemistry"
-                  value={subjectsInput}
-                  onChange={(e) => setSubjectsInput(e.target.value)}
-                  sx={{ input: { color: '#FFF' }, label: { color: '#94A3B8' }, fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
-                />
+
+              {/* Class Teacher Assignment Toggle */}
+              <Grid item xs={12}>
+                <Card sx={{ p: 2, bgcolor: 'rgba(99, 102, 241, 0.1)', border: '1px solid rgba(99, 102, 241, 0.25)', borderRadius: 2 }}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={isClassTeacher}
+                        onChange={(e) => setIsClassTeacher(e.target.checked)}
+                        color="primary"
+                      />
+                    }
+                    label={
+                      <Typography fontWeight="bold" sx={{ color: '#818CF8' }}>
+                        Assign as Class Teacher (Grants Student Attendance Input Access for Class)
+                      </Typography>
+                    }
+                  />
+
+                  {isClassTeacher && (
+                    <Grid container spacing={2} sx={{ mt: 1 }}>
+                      <Grid item xs={12} sm={6}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel sx={{ color: '#94A3B8' }}>Assigned Class</InputLabel>
+                          <Select
+                            value={assignedClass}
+                            onChange={(e) => setAssignedClass(e.target.value)}
+                            label="Assigned Class"
+                            sx={{ color: '#FFF', fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
+                          >
+                            {CLASSES.map((cls) => (
+                              <MenuItem key={cls} value={cls}>{cls}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      <Grid item xs={12} sm={6}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel sx={{ color: '#94A3B8' }}>Assigned Section</InputLabel>
+                          <Select
+                            value={assignedSection}
+                            onChange={(e) => setAssignedSection(e.target.value)}
+                            label="Assigned Section"
+                            sx={{ color: '#FFF', fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
+                          >
+                            {SECTIONS.map((sec) => (
+                              <MenuItem key={sec} value={sec}>Section {sec}</MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    </Grid>
+                  )}
+                </Card>
               </Grid>
             </Grid>
           </DialogContent>
@@ -467,7 +707,7 @@ const TeacherManagement: React.FC = () => {
               variant="contained"
               sx={{ bgcolor: '#6366F1', '&:hover': { bgcolor: '#4F46E5' }, textTransform: 'none', borderRadius: 2 }}
             >
-              {editingTeacher ? 'Save Changes' : 'Register Faculty'}
+              {editingTeacher ? 'Save Changes' : 'Create Teacher Account'}
             </Button>
           </DialogActions>
         </form>

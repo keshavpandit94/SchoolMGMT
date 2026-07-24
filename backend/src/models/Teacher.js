@@ -41,6 +41,20 @@ const TeacherSchema = new mongoose.Schema(
         type: String,
       },
     ],
+    isClassTeacher: {
+      type: Boolean,
+      default: false,
+    },
+    assignedClass: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+    assignedSection: {
+      type: String,
+      trim: true,
+      default: '',
+    },
   },
   {
     timestamps: true,

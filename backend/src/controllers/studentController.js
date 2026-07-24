@@ -116,6 +116,52 @@ export const createStudent = async (req, res, next) => {
   }
 };
 
+// @desc    Public Admission Application
+// @route   POST /api/students/public-admission
+// @access  Public
+export const publicAdmissionApply = async (req, res, next) => {
+  try {
+    const { name, class: className, dateOfBirth, gender, address, guardianName, guardianPhone, guardianEmail, photoUrl } = req.body;
+
+    if (!name || !className || !dateOfBirth || !gender || !guardianName || !guardianPhone) {
+      return res.status(400).json({ success: false, message: 'Please fill in all required fields' });
+    }
+
+    // Generate unique registration/roll tracking number
+    const uniqueRoll = `ADM-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+
+    const newStudent = new Student({
+      name,
+      rollNumber: uniqueRoll,
+      class: className,
+      section: 'Pending',
+      dateOfBirth,
+      gender,
+      address: address || '',
+      guardianName,
+      guardianPhone,
+      guardianEmail: guardianEmail || '',
+      photoUrl: photoUrl || '',
+      status: 'Pending Approval',
+    });
+
+    const savedStudent = await newStudent.save();
+
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('student_created', savedStudent);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Admission application submitted successfully! Tracking ID: ' + uniqueRoll,
+      student: savedStudent,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // @desc    Approve Student Admission (Admin/Principal only)
 // @route   PATCH /api/students/:id/approve
 // @access  Private (Admin, Principal)

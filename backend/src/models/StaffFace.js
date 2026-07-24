@@ -12,20 +12,30 @@ const StaffFaceSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    // Array of 128-dimensional floating point vectors (3-5 reference facial embeddings)
+    // Array of 128-dimensional floating point vectors (reference facial embeddings)
     faceDescriptors: [
       {
         type: [Number],
         required: true,
       },
     ],
+    // Captured facial snapshot image stored in DB
+    referenceImage: {
+      type: String,
+      default: '',
+    },
+    referenceImages: [
+      {
+        type: String,
+      },
+    ],
     shiftStart: {
       type: String,
-      default: '08:30', // HH:mm format
+      default: '08:00', // HH:mm format
     },
     shiftEnd: {
       type: String,
-      default: '16:30', // HH:mm format
+      default: '10:00', // HH:mm format
     },
   },
   {

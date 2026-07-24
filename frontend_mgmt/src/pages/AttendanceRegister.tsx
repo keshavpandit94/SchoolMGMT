@@ -33,8 +33,9 @@ import {
   CheckCircle2,
   XCircle,
   Save,
-  Filter,
-  Calendar,
+  Lock,
+  UserCheck,
+  AlertCircle,
 } from 'lucide-react';
 
 interface StudentAttendanceRow {
@@ -49,16 +50,46 @@ interface StudentAttendanceRow {
 
 const StudentClassAttendance: React.FC = () => {
   const { user } = useAuth();
-  const canModify = user && ['Admin', 'Principal', 'Teacher'].includes(user.role);
+
+  const isAdminOrPrincipal = Boolean(user && ['Admin', 'Principal'].includes(user.role));
+  const teacherDetails = user?.teacherDetails;
+
+  // Initial Class & Section default to Class Teacher's assigned class if applicable
+  const defaultClass =
+    user?.role === 'Teacher' && teacherDetails?.isClassTeacher && teacherDetails?.assignedClass
+      ? teacherDetails.assignedClass
+      : 'Class 1';
+
+  const defaultSection =
+    user?.role === 'Teacher' && teacherDetails?.isClassTeacher && teacherDetails?.assignedSection
+      ? teacherDetails.assignedSection
+      : 'A';
 
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const [className, setClassName] = useState('Class 1');
-  const [section, setSection] = useState('A');
+  const [className, setClassName] = useState(defaultClass);
+  const [section, setSection] = useState(defaultSection);
   const [students, setStudents] = useState<StudentAttendanceRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Auto set assigned class if user details refresh
+  useEffect(() => {
+    if (user?.role === 'Teacher' && teacherDetails?.isClassTeacher) {
+      if (teacherDetails.assignedClass) setClassName(teacherDetails.assignedClass);
+      if (teacherDetails.assignedSection) setSection(teacherDetails.assignedSection);
+    }
+  }, [user]);
+
+  // Check if current user is authorized to manually input/save attendance for this specific class & section
+  const isAssignedClassTeacher =
+    user?.role === 'Teacher' &&
+    teacherDetails?.isClassTeacher &&
+    teacherDetails?.assignedClass === className &&
+    teacherDetails?.assignedSection === section;
+
+  const canInputAttendance = isAdminOrPrincipal || isAssignedClassTeacher;
 
   const fetchClassStudents = async () => {
     setLoading(true);
@@ -70,7 +101,6 @@ const StudentClassAttendance: React.FC = () => {
 
       if (response.data.success) {
         const list = response.data.students.map((st: any) => {
-          // Check if attendance already exists for target date
           const existing = st.attendance?.find(
             (a: any) => new Date(a.date).toISOString().split('T')[0] === date
           );
@@ -99,16 +129,20 @@ const StudentClassAttendance: React.FC = () => {
   }, [className, section, date]);
 
   const handleStatusToggle = (id: string, newStatus: StudentAttendanceRow['status']) => {
+    if (!canInputAttendance) return;
     setStudents((prev) =>
       prev.map((st) => (st._id === id ? { ...st, status: newStatus } : st))
     );
   };
 
   const handleBulkStatus = (newStatus: StudentAttendanceRow['status']) => {
+    if (!canInputAttendance) return;
     setStudents((prev) => prev.map((st) => ({ ...st, status: newStatus })));
   };
 
   const handleSaveStudentAttendance = async () => {
+    if (!canInputAttendance) return;
+
     setSaving(true);
     setError(null);
     setSuccessMsg(null);
@@ -139,6 +173,32 @@ const StudentClassAttendance: React.FC = () => {
 
   return (
     <Box>
+      {/* Class Teacher Status / Permission Alert */}
+      <Box sx={{ mb: 3 }}>
+        {canInputAttendance ? (
+          <Alert
+            severity="success"
+            icon={<UserCheck size={20} color="#10B981" />}
+            sx={{ bgcolor: 'rgba(16, 185, 129, 0.1)', color: '#6EE7B7', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: 2 }}
+          >
+            🟢 <strong>Class Attendance Entry Access Granted</strong> — {isAdminOrPrincipal ? 'You are logged in as Admin/Principal (Full Access).' : `You are the assigned Class Teacher for ${className} (Section ${section}).`}
+          </Alert>
+        ) : (
+          <Alert
+            severity="warning"
+            icon={<Lock size={20} color="#FBBF24" />}
+            sx={{ bgcolor: 'rgba(245, 158, 11, 0.1)', color: '#FCD34D', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 2 }}
+          >
+            🔒 <strong>Manual Attendance Entry Restricted</strong> —{' '}
+            {user?.role === 'Teacher' && teacherDetails?.isClassTeacher
+              ? `You are Class Teacher for ${teacherDetails.assignedClass} (${teacherDetails.assignedSection}). You can view ${className} (${section}), but manual attendance entry is allowed ONLY for your assigned class.`
+              : user?.role === 'Teacher'
+              ? 'You are not assigned as a Class Teacher. Student attendance entry is permitted only for designated Class Teachers or Admin/Principal.'
+              : 'Student attendance manual entry is restricted to designated Class Teachers or Admin/Principal.'}
+          </Alert>
+        )}
+      </Box>
+
       {/* Class Selector Bar */}
       <Card className="glass-panel" sx={{ p: 2.5, mb: 3, bgcolor: 'rgba(17, 24, 39, 0.65)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
         <Grid container spacing={2} alignItems="center">
@@ -185,28 +245,28 @@ const StudentClassAttendance: React.FC = () => {
             </TextField>
           </Grid>
           <Grid item xs={12} sm={4} sx={{ textAlign: { sm: 'right' } }}>
-            {canModify && (
-              <Box sx={{ display: 'inline-flex', gap: 1 }}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => handleBulkStatus('Present')}
-                  startIcon={<CheckCircle2 size={14} color="#34D399" />}
-                  sx={{ color: '#34D399', borderColor: 'rgba(16, 185, 129, 0.3)', textTransform: 'none' }}
-                >
-                  All Present
-                </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => handleBulkStatus('Absent')}
-                  startIcon={<XCircle size={14} color="#FCA5A5" />}
-                  sx={{ color: '#FCA5A5', borderColor: 'rgba(239, 68, 68, 0.3)', textTransform: 'none' }}
-                >
-                  All Absent
-                </Button>
-              </Box>
-            )}
+            <Box sx={{ display: 'inline-flex', gap: 1 }}>
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={!canInputAttendance}
+                onClick={() => handleBulkStatus('Present')}
+                startIcon={<CheckCircle2 size={14} color={canInputAttendance ? '#34D399' : '#64748B'} />}
+                sx={{ color: canInputAttendance ? '#34D399' : '#64748B', borderColor: 'rgba(16, 185, 129, 0.3)', textTransform: 'none' }}
+              >
+                All Present
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                disabled={!canInputAttendance}
+                onClick={() => handleBulkStatus('Absent')}
+                startIcon={<XCircle size={14} color={canInputAttendance ? '#FCA5A5' : '#64748B'} />}
+                sx={{ color: canInputAttendance ? '#FCA5A5' : '#64748B', borderColor: 'rgba(239, 68, 68, 0.3)', textTransform: 'none' }}
+              >
+                All Absent
+              </Button>
+            </Box>
           </Grid>
         </Grid>
       </Card>
@@ -229,17 +289,15 @@ const StudentClassAttendance: React.FC = () => {
           {className} (Section {section}) — Total: {students.length} | Present: {presentCount} | Absent: {absentCount}
         </Typography>
 
-        {canModify && (
-          <Button
-            variant="contained"
-            disabled={saving || loading}
-            onClick={handleSaveStudentAttendance}
-            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save size={18} />}
-            sx={{ bgcolor: '#6366F1', '&:hover': { bgcolor: '#4F46E5' }, textTransform: 'none', borderRadius: 2 }}
-          >
-            {saving ? 'Saving...' : 'Save Class Attendance'}
-          </Button>
-        )}
+        <Button
+          variant="contained"
+          disabled={saving || loading || !canInputAttendance}
+          onClick={handleSaveStudentAttendance}
+          startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save size={18} />}
+          sx={{ bgcolor: '#6366F1', '&:hover': { bgcolor: '#4F46E5' }, textTransform: 'none', borderRadius: 2 }}
+        >
+          {saving ? 'Saving...' : 'Save Class Attendance'}
+        </Button>
       </Box>
 
       {/* Student Attendance Table */}
@@ -266,7 +324,11 @@ const StudentClassAttendance: React.FC = () => {
             <TableBody>
               {students.map((st) => (
                 <TableRow key={st._id}>
-                  <TableCell fontWeight="semibold">{st.rollNumber}</TableCell>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight="bold" sx={{ color: '#F8FAFC' }}>
+                      {st.rollNumber}
+                    </Typography>
+                  </TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                       <Avatar src={st.photoUrl} sx={{ width: 34, height: 34, bgcolor: '#6366F1' }}>
@@ -278,7 +340,7 @@ const StudentClassAttendance: React.FC = () => {
                     </Box>
                   </TableCell>
                   <TableCell sx={{ textAlign: 'center' }}>
-                    <ButtonGroup size="small" disabled={!canModify}>
+                    <ButtonGroup size="small" disabled={!canInputAttendance}>
                       <Button
                         variant={st.status === 'Present' ? 'contained' : 'outlined'}
                         onClick={() => handleStatusToggle(st._id, 'Present')}
@@ -328,7 +390,18 @@ const StudentClassAttendance: React.FC = () => {
 };
 
 const AttendanceRegister: React.FC = () => {
-  const [tabIndex, setTabIndex] = useState(0);
+  const { user } = useAuth();
+  const isAdminOrPrincipal = Boolean(user && ['Admin', 'Principal'].includes(user.role));
+
+  // If user is non-Admin/Principal (e.g. Teacher), default to Student Class Attendance tab (tabIndex 2)
+  const defaultTab = isAdminOrPrincipal ? 0 : 2;
+  const [tabIndex, setTabIndex] = useState(defaultTab);
+
+  useEffect(() => {
+    if (!isAdminOrPrincipal) {
+      setTabIndex(2);
+    }
+  }, [user]);
 
   return (
     <Box className="animate-fade-in">
@@ -338,7 +411,7 @@ const AttendanceRegister: React.FC = () => {
           Attendance Register Portal
         </Typography>
         <Typography variant="body2" sx={{ color: '#94A3B8' }}>
-          Master Attendance Register Hub: Staff/Teacher Attendance, Biometric Kiosk Terminal & Student Class Attendance.
+          Master Attendance Hub: Staff/Faculty Attendance (Admin & Principal), Biometric Entrance Kiosk & Class Teacher Student Attendance.
         </Typography>
       </Box>
 
@@ -360,16 +433,16 @@ const AttendanceRegister: React.FC = () => {
             },
           }}
         >
-          <Tab icon={<CalendarCheck size={18} />} iconPosition="start" label="Staff & Faculty Register" />
-          <Tab icon={<ScanFace size={18} />} iconPosition="start" label="Biometric Touchscreen Kiosk" />
+          {isAdminOrPrincipal && <Tab icon={<CalendarCheck size={18} />} iconPosition="start" label="Staff & Faculty Register" />}
+          {isAdminOrPrincipal && <Tab icon={<ScanFace size={18} />} iconPosition="start" label="Biometric Touchscreen Kiosk" />}
           <Tab icon={<Users size={18} />} iconPosition="start" label="Student Class Attendance" />
         </Tabs>
       </Card>
 
       {/* Tab Panels */}
-      {tabIndex === 0 && <AttendanceManagement />}
-      {tabIndex === 1 && <KioskAttendance />}
-      {tabIndex === 2 && <StudentClassAttendance />}
+      {isAdminOrPrincipal && tabIndex === 0 && <AttendanceManagement />}
+      {isAdminOrPrincipal && tabIndex === 1 && <KioskAttendance />}
+      {((isAdminOrPrincipal && tabIndex === 2) || !isAdminOrPrincipal) && <StudentClassAttendance />}
     </Box>
   );
 };

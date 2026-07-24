@@ -27,8 +27,9 @@ import {
   Avatar,
   Chip,
   Menu,
+  InputAdornment,
 } from '@mui/material';
-import { Plus, Edit2, Trash2, ShieldCheck, Briefcase } from 'lucide-react';
+import { Plus, Edit2, Trash2, KeyRound } from 'lucide-react';
 
 interface Staff {
   _id: string;
@@ -37,6 +38,7 @@ interface Staff {
     name: string;
     email: string;
     phone: string;
+    pinCode?: string;
     profilePicture?: string;
   };
   department: string;
@@ -81,7 +83,7 @@ const PRESET_ROLES = [
 
 const StaffManagement: React.FC = () => {
   const { user } = useAuth();
-  
+
   // Checking permissions: Admin & Principal can manage
   const canModify = user && ['Admin', 'Principal'].includes(user.role);
 
@@ -97,6 +99,7 @@ const StaffManagement: React.FC = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [pinCode, setPinCode] = useState('1234');
   const [password, setPassword] = useState('');
   const [department, setDepartment] = useState(DEPARTMENTS[0]);
   const [roleDetails, setRoleDetails] = useState('');
@@ -133,6 +136,7 @@ const StaffManagement: React.FC = () => {
       setName(staff.userId.name);
       setEmail(staff.userId.email);
       setPhone(staff.userId.phone || '');
+      setPinCode(staff.userId.pinCode || '1234');
       setPassword('');
       setDepartment(staff.department);
       setRoleDetails(staff.roleDetails);
@@ -143,6 +147,7 @@ const StaffManagement: React.FC = () => {
       setName('');
       setEmail('');
       setPhone('');
+      setPinCode('1234');
       setPassword('');
       setDepartment(DEPARTMENTS[0]);
       setRoleDetails('');
@@ -158,33 +163,32 @@ const StaffManagement: React.FC = () => {
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
+    if (pinCode && !/^\d{4}$/.test(pinCode.trim())) {
+      setError('Security PIN must be exactly 4 numeric digits (e.g. 1234)');
+      return;
+    }
+
+    const payload = {
+      name,
+      email,
+      phone,
+      pinCode,
+      department,
+      roleDetails,
+      photoUrl,
+      shift,
+    };
 
     try {
       if (editingStaff) {
         // Update staff profile
-        await axiosInstance.put(`/api/staff/${editingStaff._id}`, {
-          name,
-          email,
-          phone,
-          department,
-          roleDetails,
-          photoUrl,
-          shift,
-        });
+        await axiosInstance.put(`/api/staff/${editingStaff._id}`, payload);
       } else {
         // Register new staff
         await axiosInstance.post('/api/auth/register', {
-          name,
-          email,
-          phone,
+          ...payload,
           password,
           role: 'Staff',
-          department,
-          roleDetails,
-          photoUrl,
-          shift,
         });
       }
       handleCloseDialog();
@@ -279,7 +283,8 @@ const StaffManagement: React.FC = () => {
             <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
               <TableRow>
                 <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold' }}>Photo</TableCell>
-                <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold' }}>Name</TableCell>
+                <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold' }}>Name & Email</TableCell>
+                <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold' }}>Kiosk PIN</TableCell>
                 <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold' }}>Department</TableCell>
                 <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold' }}>Role / Designation</TableCell>
                 <TableCell sx={{ color: '#94A3B8', fontWeight: 'bold' }}>Status</TableCell>
@@ -301,11 +306,21 @@ const StaffManagement: React.FC = () => {
                       {staff.userId?.name?.charAt(0)}
                     </Avatar>
                   </TableCell>
-                  <TableCell fontWeight="semibold">
-                    {staff.userId?.name}
-                    <Typography variant="caption" sx={{ display: 'block', color: '#64748B' }}>
-                      {staff.userId?.email}
+                  <TableCell>
+                    <Typography variant="body2" fontWeight="bold" sx={{ color: '#F8FAFC' }}>
+                      {staff.userId?.name}
                     </Typography>
+                    <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>
+                      {staff.userId?.email} {staff.userId?.phone ? `• ${staff.userId?.phone}` : ''}
+                    </Typography>
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      icon={<KeyRound size={13} color="#F59E0B" />}
+                      label={`PIN: ${staff.userId?.pinCode || '1234'}`}
+                      size="small"
+                      sx={{ bgcolor: 'rgba(245, 158, 11, 0.15)', color: '#FBBF24', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 'bold', fontFamily: 'monospace' }}
+                    />
                   </TableCell>
                   <TableCell>
                     <Chip label={staff.department} size="small" sx={{ bgcolor: 'rgba(99, 102, 241, 0.1)', color: '#818CF8' }} />
@@ -376,7 +391,7 @@ const StaffManagement: React.FC = () => {
       >
         <form onSubmit={handleFormSubmit}>
           <DialogTitle sx={{ fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.05)', pb: 2 }}>
-            {editingStaff ? 'Edit Staff Member Details' : 'Register New Staff Member (K-12 School)'}
+            {editingStaff ? 'Edit Staff Member Details & Security PIN' : 'Register New Staff Member & Set PIN'}
           </DialogTitle>
           <DialogContent sx={{ mt: 2 }}>
             <Grid container spacing={2.5}>
@@ -419,11 +434,42 @@ const StaffManagement: React.FC = () => {
                   sx={{ input: { color: '#FFF' }, label: { color: '#94A3B8' }, fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
                 />
               </Grid>
+
+              {/* Security PIN Set by Admin/Principal */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Security PIN Passcode (4 Digits)"
+                  required
+                  value={pinCode}
+                  onChange={(e) => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    setPinCode(val);
+                  }}
+                  placeholder="1234"
+                  helperText="4-digit PIN for Touchscreen Attendance Kiosk check-in"
+                  inputProps={{ maxLength: 4, pattern: '[0-9]*' }}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <KeyRound size={18} color="#FBBF24" />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    input: { color: '#FBBF24', fontFamily: 'monospace', fontWeight: 'bold', fontSize: 16 },
+                    label: { color: '#94A3B8' },
+                    '& .MuiFormHelperText-root': { color: '#64748B', fontSize: 11 },
+                    fieldset: { borderColor: 'rgba(245, 158, 11, 0.3)' },
+                  }}
+                />
+              </Grid>
+
               {!editingStaff && (
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
-                    label="Password"
+                    label="Account Password"
                     type="password"
                     required
                     value={password}

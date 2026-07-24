@@ -5,10 +5,10 @@ import Teacher from '../models/Teacher.js';
 import Staff from '../models/Staff.js';
 import { sendOTPEmail } from '../config/nodemailer.js';
 
-// Helper to generate JWT
+// Helper to generate JWT (8-hour session expiration)
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET || 'supersecretjwtkey12345!', {
-    expiresIn: '30d',
+    expiresIn: '8h',
   });
 };
 
@@ -43,7 +43,7 @@ export const setupAdmin = async (req, res, next) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      maxAge: 8 * 60 * 60 * 1000, // 8 hours
     });
 
     res.status(201).json({
@@ -67,9 +67,29 @@ export const setupAdmin = async (req, res, next) => {
 // @route   POST /api/auth/register
 // @access  Private (Admin / Principal)
 export const registerUser = async (req, res, next) => {
-  const { name, email, password, role, phone, department, designation, qualifications, subjectsTaught, roleDetails, shift } = req.body;
+  const {
+    name,
+    email,
+    password,
+    role,
+    phone,
+    pinCode,
+    department,
+    designation,
+    qualifications,
+    subjectsTaught,
+    roleDetails,
+    shift,
+    isClassTeacher,
+    assignedClass,
+    assignedSection,
+  } = req.body;
 
   try {
+    if (pinCode && !/^\d{4}$/.test(pinCode.trim())) {
+      return res.status(400).json({ success: false, message: 'Security PIN must be exactly 4 numeric digits (e.g. 1234)' });
+    }
+
     const userExists = await User.findOne({ email });
     if (userExists) {
       return res.status(400).json({ success: false, message: 'User already exists with this email' });
@@ -81,6 +101,7 @@ export const registerUser = async (req, res, next) => {
       password: password || 'defaultPass123',
       role,
       phone,
+      pinCode: pinCode || '1234',
       isVerified: true,
     });
 
@@ -89,9 +110,12 @@ export const registerUser = async (req, res, next) => {
       const teacher = new Teacher({
         userId: user._id,
         department: department || 'General',
-        designation: designation || 'Assistant Teacher',
+        designation: designation || 'Subject Teacher',
         qualifications: qualifications || [],
         subjectsTaught: subjectsTaught || [],
+        isClassTeacher: Boolean(isClassTeacher),
+        assignedClass: assignedClass || '',
+        assignedSection: assignedSection || '',
       });
       await teacher.save();
     } else if (role === 'Staff') {
@@ -106,13 +130,14 @@ export const registerUser = async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: `${role} registered successfully.`,
+      message: `${role} registered successfully. Security PIN set to: ${user.pinCode}`,
       user: {
         _id: user._id,
         name: user.name,
         email: user.email,
         role: user.role,
         phone: user.phone,
+        pinCode: user.pinCode,
       },
     });
   } catch (error) {
@@ -216,25 +241,44 @@ export const verifyOTP = async (req, res, next) => {
 
     const token = generateToken(user._id);
 
+    // Fetch teacher profile if user is a teacher
+    let teacherProfile = null;
+    if (user.role === 'Teacher') {
+      teacherProfile = await Teacher.findOne({ userId: user._id });
+    }
+
+    const userData = {
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      phone: user.phone,
+      pinCode: user.pinCode,
+      isVerified: user.isVerified,
+      teacherDetails: teacherProfile
+        ? {
+            isClassTeacher: teacherProfile.isClassTeacher,
+            assignedClass: teacherProfile.assignedClass,
+            assignedSection: teacherProfile.assignedSection,
+            department: teacherProfile.department,
+            designation: teacherProfile.designation,
+            subjectsTaught: teacherProfile.subjectsTaught,
+          }
+        : undefined,
+    };
+
     // Set cookie
     res.cookie('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60 * 1000,
+      maxAge: 8 * 60 * 60 * 1000, // 8 hours
     });
 
     res.status(200).json({
       success: true,
       token,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        phone: user.phone,
-        isVerified: user.isVerified,
-      },
+      user: userData,
     });
   } catch (error) {
     next(error);
@@ -258,7 +302,25 @@ export const getMe = async (req, res, next) => {
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
-    res.status(200).json({ success: true, user });
+
+    let teacherProfile = null;
+    if (user.role === 'Teacher') {
+      teacherProfile = await Teacher.findOne({ userId: user._id });
+    }
+
+    const userData = user.toObject();
+    if (teacherProfile) {
+      userData.teacherDetails = {
+        isClassTeacher: teacherProfile.isClassTeacher,
+        assignedClass: teacherProfile.assignedClass,
+        assignedSection: teacherProfile.assignedSection,
+        department: teacherProfile.department,
+        designation: teacherProfile.designation,
+        subjectsTaught: teacherProfile.subjectsTaught,
+      };
+    }
+
+    res.status(200).json({ success: true, user: userData });
   } catch (error) {
     next(error);
   }

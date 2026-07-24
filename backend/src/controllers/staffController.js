@@ -1,12 +1,14 @@
+import bcrypt from 'bcryptjs';
 import Staff from '../models/Staff.js';
 import User from '../models/User.js';
+import StaffFace from '../models/StaffFace.js';
 
 // @desc    Get all staff
 // @route   GET /api/staff
 // @access  Private (Admin, Principal, Teacher, Staff)
 export const getStaff = async (req, res, next) => {
   try {
-    const staffList = await Staff.find().populate('userId', 'name email role phone profilePicture');
+    const staffList = await Staff.find().populate('userId', 'name email role phone profilePicture pinCode');
     res.status(200).json({ success: true, staff: staffList });
   } catch (error) {
     next(error);
@@ -18,7 +20,7 @@ export const getStaff = async (req, res, next) => {
 // @access  Private (Admin, Principal, Teacher, Staff)
 export const getStaffById = async (req, res, next) => {
   try {
-    const staff = await Staff.findById(req.params.id).populate('userId', 'name email role phone profilePicture');
+    const staff = await Staff.findById(req.params.id).populate('userId', 'name email role phone profilePicture pinCode');
     if (!staff) {
       return res.status(404).json({ success: false, message: 'Staff profile not found' });
     }
@@ -43,7 +45,7 @@ export const updateStaffStatus = async (req, res, next) => {
     staff.status = status;
     await staff.save();
 
-    const updatedStaff = await Staff.findById(req.params.id).populate('userId', 'name email role phone profilePicture');
+    const updatedStaff = await Staff.findById(req.params.id).populate('userId', 'name email role phone profilePicture pinCode');
 
     const io = req.app.get('io');
     if (io) {
@@ -60,7 +62,7 @@ export const updateStaffStatus = async (req, res, next) => {
 // @route   PUT /api/staff/:id
 // @access  Private (Admin, Principal)
 export const updateStaff = async (req, res, next) => {
-  const { name, email, phone, department, roleDetails, shift, photoUrl, status } = req.body;
+  const { name, email, phone, pinCode, department, roleDetails, shift, photoUrl, status } = req.body;
 
   try {
     const staff = await Staff.findById(req.params.id);
@@ -82,6 +84,25 @@ export const updateStaff = async (req, res, next) => {
       if (name !== undefined) user.name = name;
       if (phone !== undefined) user.phone = phone;
       if (photoUrl !== undefined) user.profilePicture = photoUrl;
+      if (pinCode !== undefined && pinCode.trim() !== '') {
+        if (!/^\d{4}$/.test(pinCode.trim())) {
+          return res.status(400).json({ success: false, message: 'Security PIN must be exactly 4 numeric digits (e.g. 1234)' });
+        }
+        user.pinCode = pinCode.trim();
+
+        // Also hash PIN & update StaffFace if biometric facial profile exists
+        try {
+          const salt = await bcrypt.genSalt(10);
+          const pinHash = await bcrypt.hash(pinCode.trim(), salt);
+          await StaffFace.findOneAndUpdate(
+            { userId: user._id },
+            { pinHash },
+            { upsert: false }
+          );
+        } catch (e) {
+          console.warn('StaffFace PIN hash sync warning:', e);
+        }
+      }
       if (email !== undefined) {
         // Ensure email isn't taken by someone else
         const emailExists = await User.findOne({ email, _id: { $ne: user._id } });
@@ -93,7 +114,7 @@ export const updateStaff = async (req, res, next) => {
       await user.save();
     }
 
-    const updatedStaff = await Staff.findById(req.params.id).populate('userId', 'name email role phone profilePicture');
+    const updatedStaff = await Staff.findById(req.params.id).populate('userId', 'name email role phone profilePicture pinCode');
 
     // Emit socket event for real-time synchronization
     const io = req.app.get('io');
@@ -121,6 +142,9 @@ export const deleteStaff = async (req, res, next) => {
     await User.findByIdAndDelete(staff.userId);
     // Delete Staff profile
     await staff.deleteOne();
+
+    // Delete StaffFace biometric data if any
+    await StaffFace.findOneAndDelete({ userId: staff.userId });
 
     // Emit socket event
     const io = req.app.get('io');

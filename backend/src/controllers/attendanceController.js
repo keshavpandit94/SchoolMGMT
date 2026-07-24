@@ -2,6 +2,8 @@ import Attendance from '../models/Attendance.js';
 import Teacher from '../models/Teacher.js';
 import Staff from '../models/Staff.js';
 import User from '../models/User.js';
+import SchoolSetting from '../models/SchoolSetting.js';
+import { checkWindowActive } from './settingsController.js';
 
 // Helper to normalize dates to 00:00:00 UTC
 const normalizeDate = (dateStr) => {
@@ -10,29 +12,23 @@ const normalizeDate = (dateStr) => {
   return d;
 };
 
-// Default attendance cutoff time (09:30 AM local time)
-const CUTOFF_HOUR = 9;
-const CUTOFF_MINUTE = 30;
-
-// Helper to check if attendance window is closed for a date
-const isCutoffPassed = (targetDate) => {
+// Helper to check if attendance window is closed for a date based on database settings
+const isCutoffPassedForDate = async (targetDate) => {
   const now = new Date();
   const today = new Date();
   today.setUTCHours(0, 0, 0, 0);
 
-  // Past dates are always closed/locked
+  // Past dates are locked/closed
   if (targetDate < today) return true;
   // Future dates are closed
   if (targetDate > today) return true;
 
-  // For today: check if current time > 09:30 AM
-  const currentHour = now.getHours();
-  const currentMinute = now.getMinutes();
+  // Fetch configured timing window from DB
+  let setting = await SchoolSetting.findOne({ key: 'attendance_window' });
+  const endTime = setting?.endTime || '10:00';
 
-  if (currentHour > CUTOFF_HOUR) return true;
-  if (currentHour === CUTOFF_HOUR && currentMinute >= CUTOFF_MINUTE) return true;
-
-  return false;
+  const windowStatus = checkWindowActive(setting?.startTime || '08:00', endTime);
+  return windowStatus.isCutoffPassed;
 };
 
 // @desc    Get staff and teacher attendance for a specific date
@@ -41,7 +37,11 @@ const isCutoffPassed = (targetDate) => {
 export const getDailyAttendance = async (req, res, next) => {
   try {
     const targetDate = normalizeDate(req.query.date);
-    const windowClosed = isCutoffPassed(targetDate);
+    const windowClosed = await isCutoffPassedForDate(targetDate);
+
+    // Fetch configured timing window from DB for display
+    let setting = await SchoolSetting.findOne({ key: 'attendance_window' });
+    const endTime = setting?.endTime || '10:00';
 
     // Fetch all active teachers and staff users
     const teachers = await Teacher.find().populate('userId', 'name email role phone profilePicture pinCode');
@@ -88,7 +88,7 @@ export const getDailyAttendance = async (req, res, next) => {
         status,
         markedVia,
         isLocked,
-        remarks: record ? record.remarks || '' : windowClosed && !record ? 'Auto timeout (Missed 09:30 AM deadline)' : '',
+        remarks: record ? record.remarks || '' : windowClosed && !record ? `Auto timeout (Missed ${endTime} AM deadline)` : '',
       });
     };
 
@@ -107,7 +107,7 @@ export const getDailyAttendance = async (req, res, next) => {
       success: true,
       date: targetDate,
       cutoffPassed: windowClosed,
-      cutoffTime: '09:30 AM',
+      cutoffTime: `${endTime} AM`,
       stats: {
         total: totalCount,
         present: presentCount,
@@ -130,13 +130,17 @@ export const saveDailyAttendance = async (req, res, next) => {
   try {
     const { date, records } = req.body;
     const targetDate = normalizeDate(date);
-    const windowClosed = isCutoffPassed(targetDate);
+    const windowClosed = await isCutoffPassedForDate(targetDate);
     const isAdminOrPrincipal = !req.user || ['Admin', 'Principal'].includes(req.user.role);
+
+    // Fetch configured timing window from DB for error messaging
+    let setting = await SchoolSetting.findOne({ key: 'attendance_window' });
+    const endTime = setting?.endTime || '10:00';
 
     if (windowClosed && !isAdminOrPrincipal) {
       return res.status(403).json({
         success: false,
-        message: 'Attendance window closed at 09:30 AM. Past records are locked and can ONLY be modified by Admin or Principal.',
+        message: `Attendance window closed at ${endTime} AM. Past records are locked and can ONLY be modified by Admin or Principal.`,
       });
     }
 
@@ -257,9 +261,13 @@ export const verifyKioskAttendance = async (req, res, next) => {
 
     const today = normalizeDate();
 
-    // Check time: if past 09:30 AM, mark Late, else Present
+    // Check configuration start time for lateness
+    let setting = await SchoolSetting.findOne({ key: 'attendance_window' });
+    const startTime = setting?.startTime || '08:00';
+    const [startH, startM] = startTime.split(':').map(Number);
+
     const now = new Date();
-    const isLate = now.getHours() > 9 || (now.getHours() === 9 && now.getMinutes() >= 30);
+    const isLate = now.getHours() > startH || (now.getHours() === startH && now.getMinutes() >= startM);
     const finalStatus = isLate ? 'Late' : 'Present';
 
     const attendanceRecord = await Attendance.findOneAndUpdate(

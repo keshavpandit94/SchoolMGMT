@@ -8,10 +8,13 @@ import {
   updateStudentStatus,
   markBulkStudentAttendance,
   deleteStudent,
+  publicAdmissionApply,
 } from '../controllers/studentController.js';
 import { protect, restrictTo } from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
+
+router.post('/public-admission', publicAdmissionApply);
 
 router.use(protect);
 

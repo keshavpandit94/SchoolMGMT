@@ -33,6 +33,7 @@ const UserSchema = new mongoose.Schema(
     pinCode: {
       type: String,
       default: '1234',
+      match: [/^\d{4}$/, 'Security PIN must be exactly 4 numeric digits'],
     },
     isVerified: {
       type: Boolean,

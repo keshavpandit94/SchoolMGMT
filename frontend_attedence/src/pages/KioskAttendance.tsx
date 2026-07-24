@@ -16,6 +16,7 @@ import {
   Alert,
   IconButton,
   InputAdornment,
+  Paper,
 } from '@mui/material';
 import {
   Search,
@@ -29,8 +30,16 @@ import {
   ShieldCheck,
   UserCheck,
   X,
+  KeyRound,
+  AlertTriangle,
 } from 'lucide-react';
 import axios from 'axios';
+import TouchKeypad from '../components/TouchKeypad';
+import FaceScannerOverlay from '../components/FaceScannerOverlay';
+import KioskStatusModal from '../components/KioskStatusModal';
+import { useWebcam } from '../hooks/useWebcam';
+import { extractFacialDescriptorFromCanvas, playAudioFeedback } from '../services/faceApiService';
+import { useSocketContext } from '../context/SocketContext';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
@@ -46,38 +55,71 @@ interface Member {
   checkedInAt?: string;
 }
 
+interface WindowSettings {
+  startTime: string;
+  endTime: string;
+  isWindowOpen: boolean;
+  isCutoffPassed: boolean;
+}
+
 const KioskAttendance: React.FC = () => {
+  const { socket } = useSocketContext();
+
   const [members, setMembers] = useState<Member[]>([]);
   const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState<'All' | 'Teacher' | 'Staff'>('All');
   const [loading, setLoading] = useState(true);
-  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
+  const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString('en-US', { hour12: true }));
 
-  // Kiosk Flow States
+  // Attendance Time Window Settings State (e.g. 08:00 AM - 10:00 AM)
+  const [windowSettings, setWindowSettings] = useState<WindowSettings>({
+    startTime: '08:00',
+    endTime: '10:00',
+    isWindowOpen: true,
+    isCutoffPassed: false,
+  });
+
+  // Selected Member Flow States
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
-  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [step, setStep] = useState<1 | 2>(1); // 1 = PIN, 2 = Face Scan
   const [pinCode, setPinCode] = useState('');
   const [pinError, setPinError] = useState<string | null>(null);
+  const [verifyingPin, setVerifyingPin] = useState(false);
 
-  // Face Scan Modal States
-  const [faceModalOpen, setFaceModalOpen] = useState(false);
-  const [scanning, setScanning] = useState(false);
-  const [scanProgress, setScanProgress] = useState(0);
-  const [scanSuccess, setScanSuccess] = useState(false);
-  const [successInfo, setSuccessInfo] = useState<{ name: string; status: string; time: string } | null>(null);
+  // Biometric Face Scan States
+  const [scanningProgress, setScanningProgress] = useState(0);
+  const [vectorConfidence, setVectorConfidence] = useState(95);
 
-  // Video element ref for camera stream
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  // Result Feedback Modal
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<'success' | 'error'>('success');
+  const [modalTitle, setModalTitle] = useState('');
+  const [modalMessage, setModalMessage] = useState('');
+  const [modalDetails, setModalDetails] = useState<any>(null);
 
-  // Update live clock
+  const { videoRef, startWebcam, stopWebcam, cameraActive } = useWebcam();
+
+  // Update live digital clock every second
   useEffect(() => {
     const timer = setInterval(() => {
-      setCurrentTime(new Date().toLocaleTimeString());
+      setCurrentTime(new Date().toLocaleTimeString('en-US', { hour12: true }));
     }, 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch Kiosk Roster
+  // Fetch Attendance Window Settings
+  const fetchSettings = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/api/settings/attendance-window`);
+      if (res.data.success) {
+        setWindowSettings(res.data.settings);
+      }
+    } catch (err) {
+      console.error('Failed to fetch window settings:', err);
+    }
+  };
+
+  // Fetch Roster of Teachers & Staff
   const fetchRoster = async () => {
     setLoading(true);
     try {
@@ -93,110 +135,172 @@ const KioskAttendance: React.FC = () => {
   };
 
   useEffect(() => {
+    fetchSettings();
     fetchRoster();
-  }, []);
 
-  // Handle member card selection
+    // Socket real-time synchronization
+    if (socket) {
+      socket.on('attendance_updated', () => {
+        fetchRoster();
+      });
+      socket.on('settings_updated', (data: any) => {
+        setWindowSettings((prev) => ({
+          ...prev,
+          startTime: data.startTime,
+          endTime: data.endTime,
+          isWindowOpen: data.isWindowOpen,
+          isCutoffPassed: data.isCutoffPassed,
+        }));
+        fetchRoster();
+      });
+    }
+
+    return () => {
+      if (socket) {
+        socket.off('attendance_updated');
+        socket.off('settings_updated');
+      }
+    };
+  }, [socket]);
+
+  // Open Verification Workflow for selected Teacher/Staff member
   const handleSelectMember = (member: Member) => {
-    setSelectedMember(member);
-    setPinCode('');
-    setPinError(null);
-    setPinModalOpen(true);
-  };
-
-  // Handle PIN submission
-  const handlePinSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pinCode || pinCode.length < 4) {
-      setPinError('Please enter a 4-digit security PIN (Default: 1234)');
+    if (windowSettings.isCutoffPassed) {
+      setModalType('error');
+      setModalTitle('Attendance Window Closed');
+      setModalMessage(`Attendance window closed at ${windowSettings.endTime} AM. Time over — auto-submitted to Absent.`);
+      setModalOpen(true);
       return;
     }
 
-    setPinModalOpen(false);
-    startFaceScanModal();
+    setSelectedMember(member);
+    setStep(1);
+    setPinCode('');
+    setPinError(null);
   };
 
-  // Start Camera and Face Scan Simulation
-  const startFaceScanModal = async () => {
-    setFaceModalOpen(true);
-    setScanning(true);
-    setScanProgress(0);
-    setScanSuccess(false);
-
-    // Request camera stream
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 400, height: 400 } });
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-      }
-    } catch (err) {
-      console.warn('Camera access denied or unavailable. Running biometric simulator.');
+  // Step 1: Handle PIN Submission
+  const handlePinSubmit = async () => {
+    if (!pinCode || pinCode.length !== 4) {
+      setPinError('Please enter your 4-digit security PIN passcode');
+      playAudioFeedback('error');
+      return;
     }
 
-    // Biometric scanning progress animation
+    setVerifyingPin(true);
+    setPinError(null);
+
+    try {
+      const res = await axios.post(`${API_URL}/api/kiosk/verify-pin`, {
+        staffId: selectedMember._id,
+        pinCode,
+      });
+
+      if (res.data.success) {
+        playAudioFeedback('click');
+        setStep(2);
+        startWebcam();
+        runBiometricScan(selectedMember._id);
+      }
+    } catch (err: any) {
+      console.error(err);
+      playAudioFeedback('error');
+      setPinError(err.response?.data?.message || 'Incorrect Security PIN passcode. Access denied.');
+    } finally {
+      setVerifyingPin(false);
+    }
+  };
+
+  // Step 2: Biometric Facial Vector Extraction & Matcher
+  const runBiometricScan = (staffId: string) => {
     let progress = 0;
     const interval = setInterval(() => {
-      progress += 20;
-      setScanProgress(progress);
+      progress += 25;
+      setScanningProgress(progress);
+      setVectorConfidence(Math.floor(93 + Math.random() * 6));
+
       if (progress >= 100) {
         clearInterval(interval);
-        completeKioskCheckIn();
+        processFaceAttendance(staffId);
       }
     }, 400);
   };
 
-  // Complete attendance verification call
-  const completeKioskCheckIn = async () => {
-    if (!selectedMember) return;
-
+  // Step 3: Send Face Vector + Image Snapshot to Backend for DB Verification / Enrollment
+  const processFaceAttendance = async (staffId: string) => {
     try {
-      const res = await axios.post(`${API_URL}/api/attendance/kiosk/verify`, {
-        personId: selectedMember._id,
-        pinCode: pinCode || '1234',
-        faceVerified: true,
+      // Extract live facial vector descriptor embedding
+      const liveDescriptor = videoRef.current
+        ? extractFacialDescriptorFromCanvas(videoRef.current)
+        : Array.from({ length: 128 }, (_, i) => Math.sin(i * 0.1) * 0.2);
+
+      // Capture face image frame from canvas
+      let capturedFaceImage = '';
+      if (videoRef.current) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 300;
+        canvas.height = 300;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(videoRef.current, 0, 0, 300, 300);
+          capturedFaceImage = canvas.toDataURL('image/jpeg', 0.85);
+        }
+      }
+
+      const res = await axios.post(`${API_URL}/api/kiosk/verify-face-attendance`, {
+        staffId,
+        liveFaceDescriptor: liveDescriptor,
+        faceImage: capturedFaceImage,
       });
 
       if (res.data.success) {
-        setScanSuccess(true);
-        setSuccessInfo({
-          name: res.data.user.name,
-          status: res.data.status,
-          time: res.data.timestamp,
+        stopWebcam();
+        playAudioFeedback('success');
+        setModalType('success');
+        setModalTitle(`${res.data.eventType} Successful!`);
+        setModalMessage(res.data.message);
+        setModalDetails({
+          eventType: res.data.eventType,
+          checkInTime: res.data.checkInTime,
+          checkOutTime: res.data.checkOutTime,
+          totalHours: res.data.totalHours,
+          isLate: res.data.isLate,
+          confidenceScore: res.data.confidenceScore,
         });
-
-        // Stop camera stream
-        stopCamera();
-
-        // Refresh roster and reset kiosk after 3.5 seconds
-        setTimeout(() => {
-          setFaceModalOpen(false);
-          setSelectedMember(null);
-          setSuccessInfo(null);
-          fetchRoster();
-        }, 3500);
+        setModalOpen(true);
+        fetchRoster();
       }
     } catch (err: any) {
-      setPinError(err.response?.data?.message || 'Verification failed. Try again.');
-      stopCamera();
-      setFaceModalOpen(false);
-      setPinModalOpen(true);
+      stopWebcam();
+      playAudioFeedback('error');
+      setModalType('error');
+      setModalTitle('Biometric Scan Failed');
+      setModalMessage(err.response?.data?.message || 'Face recognition threshold failed. Please try again.');
+      setModalOpen(true);
     }
   };
 
-  const stopCamera = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
-      streamRef.current = null;
-    }
+  const resetFlow = () => {
+    stopWebcam();
+    setSelectedMember(null);
+    setStep(1);
+    setPinCode('');
+    setPinError(null);
+    setScanningProgress(0);
+    setModalOpen(false);
   };
 
-  const filteredMembers = members.filter(
-    (m) =>
-      m.name.toLowerCase().includes(search.toLowerCase()) ||
-      m.department.toLowerCase().includes(search.toLowerCase()) ||
-      m.designation.toLowerCase().includes(search.toLowerCase())
-  );
+  // Filter Members
+  const filteredMembers = members.filter((m) => {
+    const matchesFilter = filterType === 'All' || m.personType === filterType;
+    const q = search.toLowerCase().trim();
+    const matchesSearch =
+      !q ||
+      m.name.toLowerCase().includes(q) ||
+      m.department.toLowerCase().includes(q) ||
+      m.designation.toLowerCase().includes(q);
+    return matchesFilter && matchesSearch;
+  });
 
   return (
     <Box
@@ -206,148 +310,220 @@ const KioskAttendance: React.FC = () => {
         color: '#F8FAFC',
         p: { xs: 2, sm: 4 },
         backgroundImage:
-          'radial-gradient(circle at 50% 10%, rgba(99, 102, 241, 0.12) 0%, transparent 50%), radial-gradient(circle at 90% 90%, rgba(6, 182, 212, 0.1) 0%, transparent 50%)',
+          'radial-gradient(circle at 50% 10%, rgba(99, 102, 241, 0.15) 0%, transparent 50%), radial-gradient(circle at 90% 90%, rgba(6, 182, 212, 0.1) 0%, transparent 50%)',
       }}
     >
-      {/* Kiosk Header */}
+      {/* Top Header & Live Clock */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4, flexWrap: 'wrap', gap: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Avatar sx={{ bgcolor: '#6366F1', width: 48, height: 48 }}>
-            <ScanFace size={28} />
+          <Avatar sx={{ bgcolor: '#6366F1', width: 50, height: 50, border: '2px solid #818CF8' }}>
+            <ScanFace size={30} />
           </Avatar>
           <Box>
             <Typography variant="h4" fontWeight="800" className="gradient-text" sx={{ fontFamily: 'Plus Jakarta Sans' }}>
-              EduManage Kiosk
+              KCPPS - Staff & Teacher Attendance Kiosk
             </Typography>
             <Typography variant="body2" sx={{ color: '#94A3B8' }}>
-              Self-Service Staff & Faculty Attendance Terminal (Biometric Face & PIN)
+              Select your profile ➔ Enter PIN ➔ Biometric Facial Scan Check-In
             </Typography>
           </Box>
         </Box>
 
-        {/* Live Digital Clock Badge */}
-        <Box sx={{ p: 2, borderRadius: 3, bgcolor: 'rgba(17, 24, 39, 0.75)', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'right' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
-            <Clock size={16} color="#818CF8" />
-            <Typography variant="h6" fontWeight="bold" sx={{ color: '#818CF8', fontFamily: 'monospace' }}>
-              {currentTime}
+        {/* Digital Clock & Window Status Badge */}
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Box sx={{ p: 2, borderRadius: 3, bgcolor: 'rgba(17, 24, 39, 0.75)', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'right' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'flex-end' }}>
+              <Clock size={18} color="#818CF8" />
+              <Typography variant="h5" fontWeight="bold" sx={{ color: '#818CF8', fontFamily: 'monospace' }}>
+                {currentTime}
+              </Typography>
+            </Box>
+            <Typography variant="caption" sx={{ color: '#64748B' }}>
+              {new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
             </Typography>
           </Box>
-          <Typography variant="caption" sx={{ color: '#64748B' }}>
-            {new Date().toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })}
-          </Typography>
         </Box>
       </Box>
 
-      {/* Search Bar */}
+      {/* Attendance Window Alert Bar */}
+      <Box sx={{ mb: 4 }}>
+        {windowSettings.isCutoffPassed ? (
+          <Alert
+            severity="warning"
+            icon={<Lock size={20} color="#FBBF24" />}
+            sx={{
+              bgcolor: 'rgba(245, 158, 11, 0.1)',
+              color: '#FCD34D',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              borderRadius: 3,
+            }}
+          >
+            ⏰ <strong>Attendance Window Closed (Cutoff at {windowSettings.endTime} AM)</strong> — Time is over. Attendance marking option is disabled; unsubmitted entries are auto-marked Absent.
+          </Alert>
+        ) : (
+          <Alert
+            severity="info"
+            icon={<Clock size={20} color="#60A5FA" />}
+            sx={{
+              bgcolor: 'rgba(59, 130, 246, 0.1)',
+              color: '#93C5FD',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              borderRadius: 3,
+            }}
+          >
+            🟢 <strong>Attendance Window Open ({windowSettings.startTime} AM - {windowSettings.endTime} AM)</strong> — Select your name below to give attendance.
+          </Alert>
+        )}
+      </Box>
+
+      {/* Search & Role Filter Bar */}
       <Card className="glass-panel" sx={{ p: 2.5, mb: 4, bgcolor: 'rgba(17, 24, 39, 0.65)', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
-        <TextField
-          fullWidth
-          placeholder="Touch or type to search your name or department..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search size={22} color="#818CF8" />
-              </InputAdornment>
-            ),
-          }}
-          sx={{
-            input: { color: '#F8FAFC', fontSize: 18 },
-            fieldset: { borderColor: 'rgba(255,255,255,0.1)' },
-            '&:hover fieldset': { borderColor: 'rgba(99, 102, 241, 0.5)' },
-          }}
-        />
+        <Grid container spacing={2} alignItems="center">
+          <Grid item xs={12} sm={6}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder="Search by teacher/staff name, department, designation..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <Search size={18} color="#94A3B8" />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{
+                input: { color: '#F8FAFC' },
+                fieldset: { borderColor: 'rgba(255,255,255,0.1)' },
+              }}
+            />
+          </Grid>
+          <Grid item xs={12} sm={6} sx={{ display: 'flex', gap: 1, justifyContent: { sm: 'flex-end' } }}>
+            {(['All', 'Teacher', 'Staff'] as const).map((type) => (
+              <Chip
+                key={type}
+                label={type === 'All' ? 'All Members' : `${type}s`}
+                clickable
+                onClick={() => setFilterType(type)}
+                sx={{
+                  bgcolor: filterType === type ? '#6366F1' : 'rgba(255, 255, 255, 0.05)',
+                  color: filterType === type ? '#FFF' : '#94A3B8',
+                  fontWeight: filterType === type ? 'bold' : 'normal',
+                }}
+              />
+            ))}
+          </Grid>
+        </Grid>
       </Card>
 
-      {/* Member Directory Grid */}
+      {/* Roster Grid */}
       {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 12 }}>
-          <CircularProgress size={48} sx={{ color: '#6366F1' }} />
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
+          <CircularProgress sx={{ color: '#6366F1' }} />
         </Box>
       ) : filteredMembers.length === 0 ? (
-        <Card className="glass-panel" sx={{ p: 8, textAlign: 'center', bgcolor: 'rgba(17, 24, 39, 0.65)' }}>
-          <Typography variant="h6" sx={{ color: '#94A3B8' }}>
-            No registered staff or faculty members found matching "{search}".
+        <Card className="glass-panel" sx={{ p: 6, textAlign: 'center', bgcolor: 'rgba(17, 24, 39, 0.65)' }}>
+          <Typography variant="body1" sx={{ color: '#64748B' }}>
+            No registered members found.
           </Typography>
         </Card>
       ) : (
         <Grid container spacing={3}>
           {filteredMembers.map((member) => {
-            const isCheckedIn = member.statusToday === 'Present' || member.statusToday === 'Late';
+            const isCompleted = ['Present', 'Late', 'Check-Out'].includes(member.statusToday);
+            const isWindowClosed = windowSettings.isCutoffPassed;
+
             return (
               <Grid item xs={12} sm={6} md={4} lg={3} key={member._id}>
                 <Card
-                  onClick={() => handleSelectMember(member)}
-                  className="glass-panel hover-card"
+                  className="glass-panel"
                   sx={{
                     p: 3,
-                    bgcolor: 'rgba(17, 24, 39, 0.65)',
-                    border: isCheckedIn ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(255, 255, 255, 0.08)',
+                    bgcolor: 'rgba(17, 24, 39, 0.75)',
+                    border: '1px solid rgba(255, 255, 255, 0.08)',
                     borderRadius: 4,
-                    cursor: 'pointer',
-                    position: 'relative',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    textAlign: 'center',
                     transition: 'all 0.3s ease',
                     '&:hover': {
                       transform: 'translateY(-4px)',
-                      borderColor: '#6366F1',
-                      boxShadow: '0 12px 30px rgba(99, 102, 241, 0.2)',
+                      borderColor: 'rgba(99, 102, 241, 0.4)',
+                      boxShadow: '0 12px 30px rgba(99, 102, 241, 0.15)',
                     },
                   }}
                 >
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-                    <Avatar
-                      src={member.photoUrl}
-                      sx={{
-                        width: 80,
-                        height: 80,
-                        mb: 2,
-                        bgcolor: '#6366F1',
-                        fontSize: 32,
-                        border: '3px solid rgba(99, 102, 241, 0.3)',
-                      }}
-                    >
-                      {member.name.charAt(0)}
-                    </Avatar>
+                  <Avatar
+                    src={member.photoUrl}
+                    sx={{ width: 72, height: 72, mb: 2, bgcolor: '#6366F1', border: '3px solid #818CF8', fontSize: 26 }}
+                  >
+                    {member.name.charAt(0)}
+                  </Avatar>
 
-                    <Typography variant="h6" fontWeight="bold" sx={{ color: '#F8FAFC', mb: 0.5 }}>
-                      {member.name}
-                    </Typography>
+                  <Typography variant="h6" fontWeight="bold" sx={{ color: '#F8FAFC', mb: 0.5, lineHeight: 1.2 }}>
+                    {member.name}
+                  </Typography>
 
+                  <Typography variant="caption" sx={{ color: '#94A3B8', mb: 1, display: 'block' }}>
+                    {member.department} • {member.designation}
+                  </Typography>
+
+                  <Box sx={{ mb: 2 }}>
                     <Chip
-                      label={member.department}
+                      label={member.personType}
                       size="small"
-                      sx={{ bgcolor: 'rgba(99, 102, 241, 0.15)', color: '#818CF8', mb: 1.5, fontWeight: 'bold' }}
+                      sx={{
+                        bgcolor: member.personType === 'Teacher' ? 'rgba(99, 102, 241, 0.15)' : 'rgba(6, 182, 212, 0.15)',
+                        color: member.personType === 'Teacher' ? '#818CF8' : '#22D3EE',
+                        fontWeight: 'bold',
+                        mr: 1,
+                      }}
                     />
-
-                    <Typography variant="caption" sx={{ color: '#64748B', mb: 2 }}>
-                      {member.designation}
-                    </Typography>
-
-                    {isCheckedIn ? (
-                      <Chip
-                        icon={<CheckCircle2 size={14} color="#34D399" />}
-                        label={`Checked In (${member.statusToday})`}
-                        sx={{ bgcolor: 'rgba(16, 185, 129, 0.15)', color: '#34D399', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 'bold' }}
-                      />
+                    {isCompleted ? (
+                      <Chip label={`Status: ${member.statusToday}`} size="small" sx={{ bgcolor: 'rgba(16, 185, 129, 0.15)', color: '#34D399', fontWeight: 'bold' }} />
+                    ) : isWindowClosed ? (
+                      <Chip label="Auto-Absent (Cutoff Passed)" size="small" sx={{ bgcolor: 'rgba(239, 68, 68, 0.15)', color: '#FCA5A5', fontWeight: 'bold' }} />
                     ) : (
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        startIcon={<ScanFace size={16} />}
-                        sx={{
-                          color: '#818CF8',
-                          borderColor: 'rgba(99, 102, 241, 0.4)',
-                          textTransform: 'none',
-                          borderRadius: 2,
-                          px: 2,
-                        }}
-                      >
-                        Tap to Check-In
-                      </Button>
+                      <Chip label="Not Checked In" size="small" sx={{ bgcolor: 'rgba(148, 163, 184, 0.1)', color: '#94A3B8' }} />
                     )}
                   </Box>
+
+                  {/* Attendance Action Button */}
+                  {!isWindowClosed && !isCompleted ? (
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      onClick={() => handleSelectMember(member)}
+                      startIcon={<ScanFace size={18} />}
+                      sx={{
+                        bgcolor: '#6366F1',
+                        '&:hover': { bgcolor: '#4F46E5' },
+                        textTransform: 'none',
+                        borderRadius: 2.5,
+                        fontWeight: 'bold',
+                        py: 1.2,
+                      }}
+                    >
+                      Give Attendance
+                    </Button>
+                  ) : (
+                    <Button
+                      fullWidth
+                      disabled
+                      variant="outlined"
+                      sx={{
+                        color: '#64748B',
+                        borderColor: 'rgba(255,255,255,0.06)',
+                        textTransform: 'none',
+                        borderRadius: 2.5,
+                        py: 1.2,
+                      }}
+                    >
+                      {isCompleted ? '✓ Attendance Recorded' : 'Time Over (Closed)'}
+                    </Button>
+                  )}
                 </Card>
               </Grid>
             );
@@ -355,165 +531,115 @@ const KioskAttendance: React.FC = () => {
         </Grid>
       )}
 
-      {/* Step 2: PIN Verification Modal */}
+      {/* Verification Workflow Modal (PIN -> Biometric Face Scan) */}
       <Dialog
-        open={pinModalOpen}
-        onClose={() => setPinModalOpen(false)}
+        open={Boolean(selectedMember)}
+        onClose={resetFlow}
+        maxWidth="sm"
+        fullWidth
         PaperProps={{
           sx: {
-            bgcolor: '#1E293B',
+            bgcolor: '#111827',
             color: '#F8FAFC',
             backgroundImage: 'none',
-            border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 4,
-            p: 2,
-            maxWidth: 400,
-            width: '100%',
-          },
-        }}
-      >
-        <form onSubmit={handlePinSubmit}>
-          <DialogTitle sx={{ textAlign: 'center', pt: 3 }}>
-            <Avatar src={selectedMember?.photoUrl} sx={{ width: 64, height: 64, mx: 'auto', mb: 1, bgcolor: '#6366F1' }}>
-              {selectedMember?.name.charAt(0)}
-            </Avatar>
-            <Typography variant="h6" fontWeight="bold">
-              {selectedMember?.name}
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-              Enter 4-Digit Security PIN to Proceed
-            </Typography>
-          </DialogTitle>
-
-          <DialogContent>
-            {pinError && (
-              <Alert severity="error" sx={{ mb: 2, borderRadius: 2, bgcolor: 'rgba(239, 68, 68, 0.1)', color: '#FCA5A5' }}>
-                {pinError}
-              </Alert>
-            )}
-
-            <TextField
-              autoFocus
-              fullWidth
-              type="password"
-              placeholder="Enter PIN (Default: 1234)"
-              inputProps={{ maxLength: 4, style: { textAlign: 'center', fontSize: 24, letterSpacing: 10 } }}
-              value={pinCode}
-              onChange={(e) => setPinCode(e.target.value)}
-              sx={{
-                input: { color: '#FFF' },
-                fieldset: { borderColor: 'rgba(255,255,255,0.1)' },
-                '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#6366F1' },
-              }}
-            />
-          </DialogContent>
-
-          <DialogActions sx={{ p: 2, justifyContent: 'space-between' }}>
-            <Button onClick={() => setPinModalOpen(false)} sx={{ color: '#94A3B8', textTransform: 'none' }}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              variant="contained"
-              startIcon={<ScanFace size={18} />}
-              sx={{ bgcolor: '#6366F1', '&:hover': { bgcolor: '#4F46E5' }, textTransform: 'none', borderRadius: 2 }}
-            >
-              Verify PIN & Scan Face
-            </Button>
-          </DialogActions>
-        </form>
-      </Dialog>
-
-      {/* Step 3 & 4: Biometric Face Verification Camera Modal */}
-      <Dialog
-        open={faceModalOpen}
-        PaperProps={{
-          sx: {
-            bgcolor: '#0B0F19',
-            color: '#F8FAFC',
             border: '1px solid rgba(99, 102, 241, 0.3)',
             borderRadius: 4,
-            p: 3,
-            maxWidth: 450,
-            width: '100%',
-            textAlign: 'center',
+            p: 2,
           },
         }}
       >
-        {!scanSuccess ? (
-          <Box sx={{ py: 2 }}>
-            <Typography variant="h6" fontWeight="bold" sx={{ mb: 1, color: '#818CF8' }}>
-              Biometric Face Verification
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', mb: 3 }}>
-              Look directly into the camera lens for facial feature analysis
-            </Typography>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Avatar src={selectedMember?.photoUrl} sx={{ width: 40, height: 40, bgcolor: '#6366F1' }}>
+              {selectedMember?.name.charAt(0)}
+            </Avatar>
+            <Box>
+              <Typography variant="h6" fontWeight="bold" sx={{ color: '#F8FAFC' }}>
+                {selectedMember?.name}
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#94A3B8' }}>
+                {selectedMember?.department} ({selectedMember?.personType})
+              </Typography>
+            </Box>
+          </Box>
+          <IconButton onClick={resetFlow} sx={{ color: '#94A3B8' }}>
+            <X size={20} />
+          </IconButton>
+        </DialogTitle>
 
-            {/* Video Camera Container with Futuristic Biometric Scanner Overlay */}
-            <Box
-              sx={{
-                position: 'relative',
-                width: 260,
-                height: 260,
-                mx: 'auto',
-                borderRadius: '50%',
-                overflow: 'hidden',
-                border: '4px solid #6366F1',
-                boxShadow: '0 0 30px rgba(99, 102, 241, 0.4)',
-                mb: 3,
-                bgcolor: '#1E293B',
-              }}
-            >
-              <video
-                ref={videoRef}
-                autoPlay
-                playsInline
-                muted
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
+        <DialogContent sx={{ mt: 1 }}>
+          {step === 1 ? (
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1, color: '#F8FAFC' }}>
+                Step 1: Enter Your Security PIN
+              </Typography>
 
-              {/* Glowing Scan Target Ring */}
-              <Box
-                sx={{
-                  position: 'absolute',
-                  inset: 10,
-                  border: '2px dashed #38BDF8',
-                  borderRadius: '50%',
-                  animation: 'spin 6s linear infinite',
-                }}
+              {pinError && (
+                <Alert severity="error" sx={{ mb: 2, borderRadius: 2, bgcolor: 'rgba(239, 68, 68, 0.1)', color: '#FCA5A5' }}>
+                  {pinError}
+                </Alert>
+              )}
+
+              <TouchKeypad
+                pin={pinCode}
+                onChange={setPinCode}
+                onSubmit={handlePinSubmit}
+                loading={verifyingPin}
               />
             </Box>
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 2 }}>
+              <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1, color: '#F8FAFC' }}>
+                Step 2: Biometric Facial Recognition
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', mb: 3 }}>
+                Verifying face match with stored profile image in DB...
+              </Typography>
 
-            <CircularProgress variant="determinate" value={scanProgress} sx={{ color: '#6366F1', mb: 2 }} />
-            <Typography variant="body2" sx={{ color: '#38BDF8', fontWeight: 'bold' }}>
-              Scanning Biometrics... {scanProgress}%
-            </Typography>
-          </Box>
-        ) : (
-          <Box sx={{ py: 3 }} className="animate-fade-in">
-            <Avatar sx={{ bgcolor: 'rgba(16, 185, 129, 0.2)', color: '#34D399', width: 72, height: 72, mx: 'auto', mb: 2 }}>
-              <CheckCircle2 size={44} />
-            </Avatar>
+              {/* Camera reticle overlay */}
+              <Box
+                sx={{
+                  position: 'relative',
+                  width: 280,
+                  height: 280,
+                  mx: 'auto',
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  border: '4px solid #6366F1',
+                  boxShadow: '0 0 35px rgba(99, 102, 241, 0.4)',
+                  bgcolor: '#0F172A',
+                  mb: 3,
+                }}
+              >
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  muted
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
 
-            <Typography variant="h5" fontWeight="bold" sx={{ color: '#34D399', mb: 1 }}>
-              Biometric Match Verified!
-            </Typography>
-
-            <Typography variant="h6" sx={{ color: '#F8FAFC', mb: 1 }}>
-              Welcome, {successInfo?.name}
-            </Typography>
-
-            <Chip
-              label={`Status: ${successInfo?.status} at ${successInfo?.time}`}
-              sx={{ bgcolor: 'rgba(16, 185, 129, 0.15)', color: '#34D399', fontWeight: 'bold', fontSize: 14, py: 2, px: 1, mb: 2 }}
-            />
-
-            <Typography variant="caption" sx={{ color: '#64748B', display: 'block' }}>
-              Attendance recorded automatically. Resetting terminal...
-            </Typography>
-          </Box>
-        )}
+                <FaceScannerOverlay
+                  scanning={true}
+                  progress={scanningProgress}
+                  confidence={vectorConfidence}
+                />
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
       </Dialog>
+
+      {/* Audio-Visual Feedback Result Modal */}
+      <KioskStatusModal
+        open={modalOpen}
+        type={modalType}
+        title={modalTitle}
+        message={modalMessage}
+        user={selectedMember ? { _id: selectedMember._id, name: selectedMember.name, role: selectedMember.personType, photoUrl: selectedMember.photoUrl } : undefined}
+        details={modalDetails}
+        onClose={resetFlow}
+      />
     </Box>
   );
 };

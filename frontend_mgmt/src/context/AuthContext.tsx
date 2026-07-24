@@ -1,7 +1,16 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import axiosInstance from '../services/axiosInstance';
 
-interface User {
+export interface TeacherDetails {
+  isClassTeacher?: boolean;
+  assignedClass?: string;
+  assignedSection?: string;
+  department?: string;
+  designation?: string;
+  subjectsTaught?: string[];
+}
+
+export interface User {
   _id: string;
   name: string;
   email: string;
@@ -9,6 +18,7 @@ interface User {
   phone?: string;
   profilePicture?: string;
   isVerified: boolean;
+  teacherDetails?: TeacherDetails;
 }
 
 interface AuthContextType {
@@ -26,6 +36,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+// 8 hours in milliseconds
+const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000;
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -33,13 +46,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [otpRequired, setOtpRequired] = useState<boolean>(false);
   const [otpEmail, setOtpEmail] = useState<string | null>(null);
 
-  // Restore session on load
+  // Restore session on load with 8-hour expiration check
   useEffect(() => {
     const restoreSession = async () => {
       const storedToken = localStorage.getItem('token');
       const storedUser = localStorage.getItem('user');
+      const storedLoginTime = localStorage.getItem('loginTimestamp');
 
       if (storedToken && storedUser) {
+        // Check if 8-hour session limit has expired
+        if (storedLoginTime && Date.now() - parseInt(storedLoginTime, 10) > EIGHT_HOURS_MS) {
+          console.warn('[Session Expired] 8-hour login session threshold reached. Logging out...');
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          localStorage.removeItem('loginTimestamp');
+          setToken(null);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+
         try {
           setToken(storedToken);
           setUser(JSON.parse(storedUser));
@@ -55,6 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Clean up if invalid session
           localStorage.removeItem('token');
           localStorage.removeItem('user');
+          localStorage.removeItem('loginTimestamp');
           setToken(null);
           setUser(null);
         }
@@ -90,6 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         localStorage.setItem('token', jwtToken);
         localStorage.setItem('user', JSON.stringify(loggedUser));
+        localStorage.setItem('loginTimestamp', Date.now().toString());
 
         setToken(jwtToken);
         setUser(loggedUser);
@@ -114,6 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('loginTimestamp');
       setToken(null);
       setUser(null);
       setOtpRequired(false);

@@ -1,12 +1,14 @@
+import bcrypt from 'bcryptjs';
 import Teacher from '../models/Teacher.js';
 import User from '../models/User.js';
+import StaffFace from '../models/StaffFace.js';
 
 // @desc    Get all teachers
 // @route   GET /api/teachers
 // @access  Private (Admin, Principal, Teacher, Staff)
 export const getTeachers = async (req, res, next) => {
   try {
-    const teachers = await Teacher.find().populate('userId', 'name email role phone profilePicture');
+    const teachers = await Teacher.find().populate('userId', 'name email role phone profilePicture pinCode');
     res.status(200).json({ success: true, teachers });
   } catch (error) {
     next(error);
@@ -18,7 +20,7 @@ export const getTeachers = async (req, res, next) => {
 // @access  Private (Admin, Principal, Teacher, Staff)
 export const getTeacherById = async (req, res, next) => {
   try {
-    const teacher = await Teacher.findById(req.params.id).populate('userId', 'name email role phone profilePicture');
+    const teacher = await Teacher.findById(req.params.id).populate('userId', 'name email role phone profilePicture pinCode');
     if (!teacher) {
       return res.status(404).json({ success: false, message: 'Teacher profile not found' });
     }
@@ -43,7 +45,7 @@ export const updateTeacherStatus = async (req, res, next) => {
     teacher.status = status;
     await teacher.save();
 
-    const updatedTeacher = await Teacher.findById(req.params.id).populate('userId', 'name email role phone profilePicture');
+    const updatedTeacher = await Teacher.findById(req.params.id).populate('userId', 'name email role phone profilePicture pinCode');
 
     const io = req.app.get('io');
     if (io) {
@@ -60,7 +62,21 @@ export const updateTeacherStatus = async (req, res, next) => {
 // @route   PUT /api/teachers/:id
 // @access  Private (Admin, Principal)
 export const updateTeacher = async (req, res, next) => {
-  const { name, email, phone, department, designation, qualifications, subjectsTaught, photoUrl, status } = req.body;
+  const {
+    name,
+    email,
+    phone,
+    pinCode,
+    department,
+    designation,
+    qualifications,
+    subjectsTaught,
+    photoUrl,
+    status,
+    isClassTeacher,
+    assignedClass,
+    assignedSection,
+  } = req.body;
 
   try {
     const teacher = await Teacher.findById(req.params.id);
@@ -75,6 +91,9 @@ export const updateTeacher = async (req, res, next) => {
     if (subjectsTaught !== undefined) teacher.subjectsTaught = subjectsTaught;
     if (photoUrl !== undefined) teacher.photoUrl = photoUrl;
     if (status !== undefined) teacher.status = status;
+    if (isClassTeacher !== undefined) teacher.isClassTeacher = Boolean(isClassTeacher);
+    if (assignedClass !== undefined) teacher.assignedClass = assignedClass;
+    if (assignedSection !== undefined) teacher.assignedSection = assignedSection;
     await teacher.save();
 
     // Update associated User fields
@@ -83,6 +102,25 @@ export const updateTeacher = async (req, res, next) => {
       if (name !== undefined) user.name = name;
       if (phone !== undefined) user.phone = phone;
       if (photoUrl !== undefined) user.profilePicture = photoUrl;
+      if (pinCode !== undefined && pinCode.trim() !== '') {
+        if (!/^\d{4}$/.test(pinCode.trim())) {
+          return res.status(400).json({ success: false, message: 'Security PIN must be exactly 4 numeric digits (e.g. 1234)' });
+        }
+        user.pinCode = pinCode.trim();
+
+        // Also hash PIN & update StaffFace if biometric facial profile exists
+        try {
+          const salt = await bcrypt.genSalt(10);
+          const pinHash = await bcrypt.hash(pinCode.trim(), salt);
+          await StaffFace.findOneAndUpdate(
+            { userId: user._id },
+            { pinHash },
+            { upsert: false }
+          );
+        } catch (e) {
+          console.warn('StaffFace PIN hash sync warning:', e);
+        }
+      }
       if (email !== undefined) {
         // Ensure email isn't taken by someone else
         const emailExists = await User.findOne({ email, _id: { $ne: user._id } });
@@ -94,7 +132,7 @@ export const updateTeacher = async (req, res, next) => {
       await user.save();
     }
 
-    const updatedTeacher = await Teacher.findById(req.params.id).populate('userId', 'name email role phone profilePicture');
+    const updatedTeacher = await Teacher.findById(req.params.id).populate('userId', 'name email role phone profilePicture pinCode');
 
     // Emit socket event for real-time synchronization
     const io = req.app.get('io');
@@ -122,6 +160,9 @@ export const deleteTeacher = async (req, res, next) => {
     await User.findByIdAndDelete(teacher.userId);
     // Delete Teacher profile
     await teacher.deleteOne();
+
+    // Delete StaffFace biometric data if any
+    await StaffFace.findOneAndDelete({ userId: teacher.userId });
 
     // Emit socket event
     const io = req.app.get('io');

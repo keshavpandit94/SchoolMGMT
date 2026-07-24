@@ -100,7 +100,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           className="gradient-text"
           sx={{ fontFamily: 'Plus Jakarta Sans', letterSpacing: 0.5 }}
         >
-          EduManage
+          KCPPS Admin
         </Typography>
       </Toolbar>
       

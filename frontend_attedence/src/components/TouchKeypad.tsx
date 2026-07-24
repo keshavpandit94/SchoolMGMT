@@ -15,7 +15,7 @@ const TouchKeypad: React.FC<TouchKeypadProps> = ({
   pin,
   onChange,
   onSubmit,
-  maxLength = 6,
+  maxLength = 4,
   loading = false,
 }) => {
   const handleKeyClick = (num: string) => {

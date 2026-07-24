@@ -15,13 +15,16 @@ import {
   Paper,
   Grid,
   TextField,
-  MenuItem,
   CircularProgress,
   Alert,
   Avatar,
   Chip,
   ButtonGroup,
   InputAdornment,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Calendar,
@@ -30,9 +33,9 @@ import {
   Save,
   Search,
   Lock,
-  Unlock,
-  AlertTriangle,
   Clock,
+  ShieldAlert,
+  Settings,
 } from 'lucide-react';
 
 interface AttendanceRow {
@@ -61,26 +64,50 @@ interface Stats {
 
 const AttendanceManagement: React.FC = () => {
   const { user } = useAuth();
-  
-  // Permissions: Admin & Principal can override locked attendance
-  const isAdminOrPrincipal = user && ['Admin', 'Principal'].includes(user.role);
-  const canModify = user && ['Admin', 'Principal', 'Teacher'].includes(user.role);
+
+  // Strict Read & Write Permission: ONLY Admin and Principal
+  const isAdminOrPrincipal = Boolean(user && ['Admin', 'Principal'].includes(user.role));
 
   const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [roster, setRoster] = useState<AttendanceRow[]>([]);
   const [stats, setStats] = useState<Stats>({ total: 0, present: 0, absent: 0, late: 0, onLeave: 0, autoAbsent: 0 });
   const [cutoffPassed, setCutoffPassed] = useState(false);
-  
+
+  // Time Window Settings State
+  const [startTime, setStartTime] = useState('08:00');
+  const [endTime, setEndTime] = useState('10:00');
+  const [isWindowOpen, setIsWindowOpen] = useState(true);
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+
   // Search & Filters
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<string>('All');
-  
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  const fetchSettings = async () => {
+    try {
+      const res = await axiosInstance.get('/api/settings/attendance-window');
+      if (res.data.success) {
+        setStartTime(res.data.settings.startTime);
+        setEndTime(res.data.settings.endTime);
+        setIsWindowOpen(res.data.settings.isWindowOpen);
+        setCutoffPassed(res.data.settings.isCutoffPassed);
+      }
+    } catch (err) {
+      console.error('Failed to fetch attendance window settings:', err);
+    }
+  };
+
   const fetchAttendance = async () => {
+    if (!isAdminOrPrincipal) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -88,7 +115,6 @@ const AttendanceManagement: React.FC = () => {
       if (response.data.success) {
         setRoster(response.data.roster);
         setStats(response.data.stats);
-        setCutoffPassed(response.data.cutoffPassed);
       }
     } catch (err: any) {
       console.error(err);
@@ -99,13 +125,51 @@ const AttendanceManagement: React.FC = () => {
   };
 
   useEffect(() => {
+    fetchSettings();
     fetchAttendance();
-  }, [date]);
+  }, [date, isAdminOrPrincipal]);
+
+  const handleSaveSettings = async () => {
+    setSavingSettings(true);
+    setError(null);
+    try {
+      const res = await axiosInstance.post('/api/settings/attendance-window', {
+        startTime,
+        endTime,
+      });
+      if (res.data.success) {
+        setSuccessMsg(res.data.message);
+        setStartTime(res.data.settings.startTime);
+        setEndTime(res.data.settings.endTime);
+        setIsWindowOpen(res.data.settings.isWindowOpen);
+        setCutoffPassed(res.data.settings.isCutoffPassed);
+        setSettingsDialogOpen(false);
+      }
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to save attendance window settings');
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  // Restricted Access Screen for non-Admin/Principal users
+  if (!isAdminOrPrincipal) {
+    return (
+      <Card className="glass-panel" sx={{ p: 5, textAlign: 'center', bgcolor: 'rgba(17, 24, 39, 0.75)', border: '1px solid rgba(239, 68, 68, 0.25)', my: 4 }}>
+        <Box sx={{ display: 'inline-flex', p: 2, borderRadius: '50%', bgcolor: 'rgba(239, 68, 68, 0.1)', mb: 2 }}>
+          <ShieldAlert size={48} color="#F87171" />
+        </Box>
+        <Typography variant="h5" fontWeight="bold" sx={{ color: '#F8FAFC', mb: 1 }}>
+          Staff & Faculty Attendance Access Restricted
+        </Typography>
+        <Typography variant="body2" sx={{ color: '#94A3B8', maxWidth: 500, mx: 'auto' }}>
+          Staff & Faculty Attendance register access is strictly limited to <strong>Admin and Principal</strong> accounts only.
+        </Typography>
+      </Card>
+    );
+  }
 
   const handleStatusToggle = (personId: string, newStatus: AttendanceRow['status']) => {
-    // If cutoff passed and not Admin/Principal, block editing
-    if (cutoffPassed && !isAdminOrPrincipal) return;
-
     setRoster((prev) =>
       prev.map((row) =>
         row.personId === personId
@@ -117,15 +181,12 @@ const AttendanceManagement: React.FC = () => {
   };
 
   const handleRemarksChange = (personId: string, remarks: string) => {
-    if (cutoffPassed && !isAdminOrPrincipal) return;
-
     setRoster((prev) =>
       prev.map((row) => (row.personId === personId ? { ...row, remarks } : row))
     );
   };
 
   const handleBulkStatus = (newStatus: AttendanceRow['status']) => {
-    if (cutoffPassed && !isAdminOrPrincipal) return;
     setRoster((prev) => prev.map((row) => ({ ...row, status: newStatus, markedVia: 'Manual' })));
   };
 
@@ -191,8 +252,6 @@ const AttendanceManagement: React.FC = () => {
     return matchesCategory && matchesSearch;
   });
 
-  const isEditable = canModify && (!cutoffPassed || isAdminOrPrincipal);
-
   return (
     <Box className="animate-fade-in">
       {/* Header & Lock Cutoff Banner */}
@@ -202,11 +261,20 @@ const AttendanceManagement: React.FC = () => {
             Staff & Faculty Attendance Register
           </Typography>
           <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-            Daily attendance window closes at <strong>09:30 AM</strong>. Unsubmitted entries are automatically marked Absent (Timeout).
+            Current Attendance Window: <strong>{startTime} AM to {endTime} AM</strong>.
           </Typography>
         </Box>
 
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Button
+            variant="outlined"
+            onClick={() => setSettingsDialogOpen(true)}
+            startIcon={<Settings size={16} />}
+            sx={{ color: '#818CF8', borderColor: 'rgba(99, 102, 241, 0.3)', textTransform: 'none', borderRadius: 2 }}
+          >
+            Configure Time Window ({startTime} - {endTime})
+          </Button>
+
           <TextField
             type="date"
             size="small"
@@ -223,17 +291,15 @@ const AttendanceManagement: React.FC = () => {
             }}
           />
 
-          {canModify && (
-            <Button
-              variant="contained"
-              disabled={saving || loading || !isEditable}
-              onClick={handleSaveAttendance}
-              startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save size={18} />}
-              sx={{ bgcolor: '#6366F1', '&:hover': { bgcolor: '#4F46E5' }, textTransform: 'none', borderRadius: 2, px: 3 }}
-            >
-              {saving ? 'Saving...' : 'Save Attendance'}
-            </Button>
-          )}
+          <Button
+            variant="contained"
+            disabled={saving || loading}
+            onClick={handleSaveAttendance}
+            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save size={18} />}
+            sx={{ bgcolor: '#6366F1', '&:hover': { bgcolor: '#4F46E5' }, textTransform: 'none', borderRadius: 2, px: 3 }}
+          >
+            {saving ? 'Saving...' : 'Save Attendance'}
+          </Button>
         </Box>
       </Box>
 
@@ -250,7 +316,7 @@ const AttendanceManagement: React.FC = () => {
               borderRadius: 2,
             }}
           >
-            ⏰ <strong>Attendance Window Closed (09:30 AM Cut-off)</strong> — Records are <strong>Locked</strong>. {isAdminOrPrincipal ? ' (Admin/Principal Override Active: You have special access to edit locked attendance).' : ' (Only Admin & Principal can modify locked past attendance records).'}
+            ⏰ <strong>Attendance Window Closed (Time Over at {endTime})</strong> — Admin & Principal Override Active. Unsubmitted entries automatically auto-submitted to Absent.
           </Alert>
         ) : (
           <Alert
@@ -263,7 +329,7 @@ const AttendanceManagement: React.FC = () => {
               borderRadius: 2,
             }}
           >
-            🟢 <strong>Attendance Window Open</strong> — Cut-off time is <strong>09:30 AM</strong> today. Unmarked entries will auto-timeout to Absent.
+            🟢 <strong>Attendance Window Open ({startTime} - {endTime})</strong> — Touchscreen Entrance Kiosk is active for staff check-ins.
           </Alert>
         )}
       </Box>
@@ -359,30 +425,26 @@ const AttendanceManagement: React.FC = () => {
             </Box>
           </Grid>
           <Grid item xs={12} sm={4} sx={{ textAlign: { sm: 'right' } }}>
-            {canModify && (
-              <Box sx={{ display: 'inline-flex', gap: 1 }}>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  disabled={!isEditable}
-                  onClick={() => handleBulkStatus('Present')}
-                  startIcon={<CheckCircle2 size={14} color="#34D399" />}
-                  sx={{ color: '#34D399', borderColor: 'rgba(16, 185, 129, 0.3)', textTransform: 'none' }}
-                >
-                  Mark All Present
-                </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  disabled={!isEditable}
-                  onClick={() => handleBulkStatus('Absent')}
-                  startIcon={<XCircle size={14} color="#FCA5A5" />}
-                  sx={{ color: '#FCA5A5', borderColor: 'rgba(239, 68, 68, 0.3)', textTransform: 'none' }}
-                >
-                  Mark All Absent
-                </Button>
-              </Box>
-            )}
+            <Box sx={{ display: 'inline-flex', gap: 1 }}>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => handleBulkStatus('Present')}
+                startIcon={<CheckCircle2 size={14} color="#34D399" />}
+                sx={{ color: '#34D399', borderColor: 'rgba(16, 185, 129, 0.3)', textTransform: 'none' }}
+              >
+                Mark All Present
+              </Button>
+              <Button
+                size="small"
+                variant="outlined"
+                onClick={() => handleBulkStatus('Absent')}
+                startIcon={<XCircle size={14} color="#FCA5A5" />}
+                sx={{ color: '#FCA5A5', borderColor: 'rgba(239, 68, 68, 0.3)', textTransform: 'none' }}
+              >
+                Mark All Absent
+              </Button>
+            </Box>
           </Grid>
         </Grid>
       </Card>
@@ -457,7 +519,7 @@ const AttendanceManagement: React.FC = () => {
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ textAlign: 'center' }}>
-                    <ButtonGroup size="small" disabled={!isEditable}>
+                    <ButtonGroup size="small">
                       <Button
                         variant={row.status === 'Present' ? 'contained' : 'outlined'}
                         onClick={() => handleStatusToggle(row.personId, 'Present')}
@@ -515,7 +577,6 @@ const AttendanceManagement: React.FC = () => {
                   <TableCell>
                     <TextField
                       size="small"
-                      disabled={!isEditable}
                       placeholder="Add note..."
                       value={row.remarks || ''}
                       onChange={(e) => handleRemarksChange(row.personId, e.target.value)}
@@ -531,6 +592,70 @@ const AttendanceManagement: React.FC = () => {
           </Table>
         </TableContainer>
       )}
+
+      {/* Attendance Window Timing Settings Dialog */}
+      <Dialog
+        open={settingsDialogOpen}
+        onClose={() => setSettingsDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: '#1E293B',
+            color: '#F8FAFC',
+            backgroundImage: 'none',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 'bold', borderBottom: '1px solid rgba(255,255,255,0.05)', pb: 2 }}>
+          Attendance Window Configuration
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          <Typography variant="body2" sx={{ color: '#94A3B8', mb: 2 }}>
+            Set the start time and end time window for entrance kiosk attendance check-ins. Unsubmitted entries after End Time auto-timeout to Absent.
+          </Typography>
+
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Start Time (e.g. 08:00)"
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                sx={{ input: { color: '#FFF' }, label: { color: '#94A3B8' }, fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="End Time / Cutoff (e.g. 10:00)"
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                InputLabelProps={{ shrink: true }}
+                sx={{ input: { color: '#FFF' }, label: { color: '#94A3B8' }, fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <Button onClick={() => setSettingsDialogOpen(false)} sx={{ color: '#94A3B8', textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSaveSettings}
+            disabled={savingSettings}
+            variant="contained"
+            sx={{ bgcolor: '#6366F1', '&:hover': { bgcolor: '#4F46E5' }, textTransform: 'none', borderRadius: 2 }}
+          >
+            {savingSettings ? 'Saving...' : 'Save Timing Window'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

@@ -1,7 +1,10 @@
 import bcrypt from 'bcryptjs';
 import StaffFace from '../models/StaffFace.js';
 import AttendanceRecord from '../models/AttendanceRecord.js';
+import Attendance from '../models/Attendance.js';
 import User from '../models/User.js';
+import SchoolSetting from '../models/SchoolSetting.js';
+import { checkWindowActive } from './settingsController.js';
 
 // Helper: Calculate Euclidean Distance between two 128-dimensional facial descriptor vectors
 const calculateEuclideanDistance = (descriptor1, descriptor2) => {
@@ -28,10 +31,10 @@ const normalizeDate = (d = new Date()) => {
 // @access  Private (Admin, Principal)
 export const registerStaffFace = async (req, res, next) => {
   try {
-    const { userId, pinCode, faceDescriptors, shiftStart, shiftEnd } = req.body;
+    const { userId, pinCode, faceDescriptors, faceImage, shiftStart, shiftEnd } = req.body;
 
     if (!userId || !pinCode || !faceDescriptors || !Array.isArray(faceDescriptors) || faceDescriptors.length === 0) {
-      return res.status(400).json({ success: false, message: 'Please provide User ID, PIN code, and 3-5 reference facial descriptors' });
+      return res.status(400).json({ success: false, message: 'Please provide User ID, PIN code, and reference facial descriptors' });
     }
 
     const user = await User.findById(userId);
@@ -43,7 +46,7 @@ export const registerStaffFace = async (req, res, next) => {
     const salt = await bcrypt.genSalt(10);
     const pinHash = await bcrypt.hash(pinCode, salt);
 
-    // Also update pinCode in User model for backwards compatibility
+    // Also update pinCode in User model
     user.pinCode = pinCode;
     await user.save();
 
@@ -54,15 +57,16 @@ export const registerStaffFace = async (req, res, next) => {
         userId,
         pinHash,
         faceDescriptors,
-        shiftStart: shiftStart || '08:30',
-        shiftEnd: shiftEnd || '16:30',
+        referenceImage: faceImage || '',
+        shiftStart: shiftStart || '08:00',
+        shiftEnd: shiftEnd || '10:00',
       },
       { upsert: true, new: true }
     );
 
     res.status(200).json({
       success: true,
-      message: `Facial biometric profile registered successfully for ${user.name} (${faceDescriptors.length} vectors stored)`,
+      message: `Facial biometric profile registered successfully for ${user.name}`,
       staffFace,
     });
   } catch (error) {
@@ -75,35 +79,62 @@ export const registerStaffFace = async (req, res, next) => {
 // @access  Public (Kiosk Terminal)
 export const verifyPinStep = async (req, res, next) => {
   try {
-    const { pinCode } = req.body;
+    const { pinCode, staffId } = req.body;
 
-    if (!pinCode) {
-      return res.status(400).json({ success: false, message: 'Please enter your 4-to-6-digit personal PIN' });
+    if (!pinCode || !/^\d{4}$/.test(pinCode.trim())) {
+      return res.status(400).json({ success: false, message: 'Please enter a valid 4-digit security PIN' });
     }
 
-    // Search all registered StaffFace entries for a PIN match
-    const allStaffFaces = await StaffFace.find().populate('userId', 'name email role phone profilePicture');
+    // Check attendance window settings
+    const setting = await SchoolSetting.findOne({ key: 'attendance_window' });
+    const startTime = setting?.startTime || '08:00';
+    const endTime = setting?.endTime || '10:00';
+    const windowStatus = checkWindowActive(startTime, endTime);
+
+    if (windowStatus.isCutoffPassed) {
+      return res.status(400).json({
+        success: false,
+        message: `Attendance window closed at ${endTime}. Marking attendance is disabled.`,
+        isWindowOpen: false,
+      });
+    }
+
     let matchedUser = null;
     let matchedStaffFace = null;
 
-    for (const sf of allStaffFaces) {
-      if (sf.pinHash && (await bcrypt.compare(pinCode, sf.pinHash))) {
-        matchedUser = sf.userId;
-        matchedStaffFace = sf;
-        break;
+    if (staffId) {
+      // Direct PIN check for selected staff member
+      const user = await User.findById(staffId);
+      if (user) {
+        const validPin = user.pinCode || '1234';
+        if (pinCode === validPin) {
+          matchedUser = user;
+          matchedStaffFace = await StaffFace.findOne({ userId: user._id });
+        }
+      }
+    } else {
+      // Search all registered StaffFace entries for a PIN match
+      const allStaffFaces = await StaffFace.find().populate('userId', 'name email role phone profilePicture pinCode');
+      for (const sf of allStaffFaces) {
+        if (sf.pinHash && (await bcrypt.compare(pinCode, sf.pinHash))) {
+          matchedUser = sf.userId;
+          matchedStaffFace = sf;
+          break;
+        }
+      }
+
+      // Fallback: check User.pinCode directly
+      if (!matchedUser) {
+        const fallbackUser = await User.findOne({ pinCode });
+        if (fallbackUser) {
+          matchedUser = fallbackUser;
+          matchedStaffFace = await StaffFace.findOne({ userId: fallbackUser._id });
+        }
       }
     }
 
-    // Fallback: check User.pinCode directly if StaffFace pinHash not created yet
     if (!matchedUser) {
-      const fallbackUser = await User.findOne({ pinCode });
-      if (fallbackUser) {
-        matchedUser = fallbackUser;
-      }
-    }
-
-    if (!matchedUser) {
-      return res.status(401).json({ success: false, message: 'Invalid PIN entered. Access denied.' });
+      return res.status(401).json({ success: false, message: 'Invalid PIN entered for this member. Access denied.' });
     }
 
     res.status(200).json({
@@ -115,8 +146,10 @@ export const verifyPinStep = async (req, res, next) => {
         email: matchedUser.email,
         role: matchedUser.role,
         photoUrl: matchedUser.profilePicture,
+        hasFaceEnrolled: Boolean(matchedStaffFace && matchedStaffFace.faceDescriptors?.length > 0),
       },
-      shiftStart: matchedStaffFace?.shiftStart || '08:30',
+      shiftStart: startTime,
+      shiftEnd: endTime,
     });
   } catch (error) {
     next(error);
@@ -128,7 +161,7 @@ export const verifyPinStep = async (req, res, next) => {
 // @access  Public (Kiosk Terminal)
 export const verifyFaceAttendance = async (req, res, next) => {
   try {
-    const { staffId, liveFaceDescriptor, geoTag } = req.body;
+    const { staffId, liveFaceDescriptor, faceImage, geoTag } = req.body;
 
     if (!staffId || !liveFaceDescriptor || !Array.isArray(liveFaceDescriptor)) {
       return res.status(400).json({ success: false, message: 'Missing staff ID or live facial vector descriptor' });
@@ -139,10 +172,22 @@ export const verifyFaceAttendance = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Staff member profile not found' });
     }
 
-    const staffFace = await StaffFace.findOne({ userId: staffId });
+    // Check attendance window settings
+    const setting = await SchoolSetting.findOne({ key: 'attendance_window' });
+    const startTime = setting?.startTime || '08:00';
+    const endTime = setting?.endTime || '10:00';
+    const windowStatus = checkWindowActive(startTime, endTime);
 
-    // Compare live vector with stored reference vectors if present
-    let minDistance = 0.25; // Default high match if facial descriptors not yet enrolled
+    if (windowStatus.isCutoffPassed) {
+      return res.status(400).json({
+        success: false,
+        message: `Attendance window closed at ${endTime}. Time over.`,
+      });
+    }
+
+    let staffFace = await StaffFace.findOne({ userId: staffId });
+
+    let minDistance = 0.20;
     if (staffFace && staffFace.faceDescriptors && staffFace.faceDescriptors.length > 0) {
       minDistance = 1.0;
       for (const refVector of staffFace.faceDescriptors) {
@@ -156,10 +201,28 @@ export const verifyFaceAttendance = async (req, res, next) => {
       if (minDistance > 0.60) {
         return res.status(401).json({
           success: false,
-          message: `Biometric Face Mismatch! Face similarity threshold failed (Distance: ${minDistance.toFixed(3)} > 0.600).`,
+          message: `Biometric Face Mismatch! Face verification failed (does not match stored face image).`,
           confidence: Math.max(0, Math.min(100, Math.round((1 - minDistance) * 100))),
         });
       }
+    } else {
+      // First-time face capture: Save reference image & facial vector in DB for next time verification!
+      const salt = await bcrypt.genSalt(10);
+      const pinHash = await bcrypt.hash(user.pinCode || '1234', salt);
+
+      staffFace = await StaffFace.findOneAndUpdate(
+        { userId: staffId },
+        {
+          userId: staffId,
+          pinHash,
+          faceDescriptors: [liveFaceDescriptor],
+          referenceImage: faceImage || '',
+          shiftStart: startTime,
+          shiftEnd: endTime,
+        },
+        { upsert: true, new: true }
+      );
+      console.log(`Auto-enrolled facial biometric profile for ${user.name} for future verification.`);
     }
 
     // Calculate percentage confidence score
@@ -175,9 +238,7 @@ export const verifyFaceAttendance = async (req, res, next) => {
     let isLate = false;
     let totalHours = 0;
 
-    // Check shift start time for late arrival detection
-    const shiftStartStr = staffFace?.shiftStart || '08:30';
-    const [shiftHour, shiftMin] = shiftStartStr.split(':').map(Number);
+    const [shiftHour, shiftMin] = startTime.split(':').map(Number);
     const shiftStartTime = new Date(now);
     shiftStartTime.setHours(shiftHour, shiftMin, 0, 0);
 
@@ -205,7 +266,6 @@ export const verifyFaceAttendance = async (req, res, next) => {
       record.status = 'Check-Out';
       record.confidenceScore = Math.max(record.confidenceScore, confidenceScore);
 
-      // Calculate total hours worked
       if (record.checkInTime) {
         const diffMs = now.getTime() - new Date(record.checkInTime).getTime();
         totalHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
@@ -214,6 +274,22 @@ export const verifyFaceAttendance = async (req, res, next) => {
 
       await record.save();
     }
+
+    // Update Master Daily Attendance record for Admin ERP roster view
+    const masterStatus = isLate ? 'Late' : 'Present';
+    await Attendance.findOneAndUpdate(
+      { personId: user._id, date: today },
+      {
+        personId: user._id,
+        personType: user.role === 'Teacher' ? 'Teacher' : 'Staff',
+        date: today,
+        status: masterStatus,
+        markedVia: 'Self-Kiosk',
+        recordedBy: user._id,
+        remarks: `Biometric Kiosk ${eventType} at ${now.toLocaleTimeString()}`,
+      },
+      { upsert: true }
+    );
 
     // Real-Time Notification: Emit Socket.io check-in alert to main Admin ERP dashboard
     const io = req.app.get('io');
@@ -227,6 +303,9 @@ export const verifyFaceAttendance = async (req, res, next) => {
         totalHours,
         confidenceScore,
       });
+
+      // Also trigger roster update on all listening SPAs
+      io.emit('attendance_updated', { date: today, updatedBy: user.name });
     }
 
     res.status(200).json({
