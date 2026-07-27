@@ -1,6 +1,6 @@
 services:
   mongodb:
-    image: mongo:latest
+    image: mongo:6.0
     container_name: sms_mongodb
     ports:
       - "27017:27017"
@@ -13,18 +13,18 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      target: development
     container_name: sms_backend
-    command: npm run dev
     ports:
       - "5000:5000"
     volumes:
-      - ./backend:/app
-      - /app/node_modules
+      - ./backend:/usr/src/app
+      - /usr/src/app/node_modules
     environment:
       - PORT=5000
       - MONGO_URI=mongodb://mongodb:27017/school_mgmt
       - JWT_SECRET=supersecretjwtkey12345!
-      - CLIENT_URL=http://localhost:5173
+      - CLIENT_URL=http://localhost:5173,http://localhost:5174,http://localhost:5175
       - RESEND_API_KEY=
       - EMAIL_FROM=onboarding@resend.dev
       - CLOUDINARY_CLOUD_NAME=
@@ -35,19 +35,55 @@ services:
     networks:
       - sms_network
 
-  frontend:
-    # Use node image directly for local hot-reload development
-    image: node:20-alpine
-    container_name: sms_frontend
-    working_dir: /app
-    command: sh -c "npm install && npm run dev"
+  frontend_schoolweb:
+    build:
+      context: ./frontend_schoolWeb
+      dockerfile: Dockerfile
+      target: development
+    container_name: sms_frontend_schoolweb
     ports:
       - "5173:5173"
     volumes:
-      - ./frontend:/app
+      - ./frontend_schoolWeb:/app
       - /app/node_modules
     environment:
-      - VITE_API_URL=http://backend:5000
+      - VITE_API_URL=http://localhost:5000
+    depends_on:
+      - backend
+    networks:
+      - sms_network
+
+  frontend_mgmt:
+    build:
+      context: ./frontend_mgmt
+      dockerfile: Dockerfile
+      target: development
+    container_name: sms_frontend_mgmt
+    ports:
+      - "5174:5173"
+    volumes:
+      - ./frontend_mgmt:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:5000
+    depends_on:
+      - backend
+    networks:
+      - sms_network
+
+  frontend_attedence:
+    build:
+      context: ./frontend_attedence
+      dockerfile: Dockerfile
+      target: development
+    container_name: sms_frontend_attedence
+    ports:
+      - "5175:5173"
+    volumes:
+      - ./frontend_attedence:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:5000
     depends_on:
       - backend
     networks:

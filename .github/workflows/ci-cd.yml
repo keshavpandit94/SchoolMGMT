@@ -31,9 +31,12 @@ jobs:
           cd backend
           npm test
 
-  test-frontend:
-    name: Frontend Test Suite
+  test-frontends:
+    name: Test Frontend - ${{ matrix.project }}
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        project: [frontend_mgmt, frontend_attedence]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -43,22 +46,25 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: './frontend/package-lock.json'
+          cache-dependency-path: './${{ matrix.project }}/package-lock.json'
 
-      - name: Install Frontend Dependencies
+      - name: Install Dependencies
         run: |
-          cd frontend
+          cd ${{ matrix.project }}
           npm ci
 
       - name: Run Vitest Tests
         run: |
-          cd frontend
+          cd ${{ matrix.project }}
           npm run test
 
   build-docker:
-    name: Validate Docker Builds
-    needs: [test-backend, test-frontend]
+    name: Validate Docker Build - ${{ matrix.service }}
+    needs: [test-backend, test-frontends]
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [backend, frontend_schoolWeb, frontend_mgmt, frontend_attedence]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -66,16 +72,9 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build Backend Docker Image
+      - name: Build Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: ./backend
+          context: ./${{ matrix.service }}
           push: false
-          tags: school-mgmt-backend:latest
-
-      - name: Build Frontend Docker Image
-        uses: docker/build-push-action@v5
-        with:
-          context: ./frontend
-          push: false
-          tags: school-mgmt-frontend:latest
+          tags: ${{ matrix.service }}:latest

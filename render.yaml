@@ -19,7 +19,7 @@ services:
       - key: JWT_SECRET
         generateValue: true
       - key: CLIENT_URL
-        sync: false # Render Frontend URL: https://school-mgmt-frontend.onrender.com
+        sync: false # Render Frontends URLs (comma separated)
       - key: RESEND_API_KEY
         sync: false # Get free API Key at https://resend.com
       - key: EMAIL_FROM
@@ -32,12 +32,12 @@ services:
         sync: false
 
   # -------------------------------------------------------------
-  # 2. FRONTEND STATIC SITE (React + Vite SPA)
+  # 2. PUBLIC WEBSITE FRONTEND (React + Vite SPA)
   # -------------------------------------------------------------
   - type: web
-    name: school-mgmt-frontend
+    name: school-mgmt-schoolweb
     env: static
-    rootDir: frontend
+    rootDir: frontend_schoolWeb
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     routes:
@@ -47,4 +47,40 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        sync: false # Render Backend URL: https://school-mgmt-backend.onrender.com
+        sync: false # Render Backend URL
+
+  # -------------------------------------------------------------
+  # 3. MANAGEMENT PORTAL FRONTEND (React + Vite SPA)
+  # -------------------------------------------------------------
+  - type: web
+    name: school-mgmt-admin
+    env: static
+    rootDir: frontend_mgmt
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      # SPA Rewrite Rule for React Router (prevents 404 on refresh)
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false # Render Backend URL
+
+  # -------------------------------------------------------------
+  # 4. ATTENDANCE KIOSK FRONTEND (React + Vite SPA)
+  # -------------------------------------------------------------
+  - type: web
+    name: school-mgmt-attendance
+    env: static
+    rootDir: frontend_attedence
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      # SPA Rewrite Rule for React Router (prevents 404 on refresh)
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        sync: false # Render Backend URL

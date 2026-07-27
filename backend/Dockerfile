@@ -1,25 +1,45 @@
-# ---- Development image (used by docker-compose `npm run dev`) ----
-FROM node:20-alpine AS development
-WORKDIR /app
+# ---- Base Node Image ----
+FROM node:20-alpine AS base
+# Install tini for proper PID 1 signal handling and zombie reaping
+RUN apk add --no-cache tini
+WORKDIR /usr/src/app
+
+# ---- Development stage ----
+FROM base AS development
+COPY package*.json ./
+RUN npm install
+COPY . .
+EXPOSE 5000
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["npm", "run", "dev"]
+
+# ---- Builder (production build / dependencies stage) ----
+FROM base AS builder
 COPY package*.json ./
 RUN npm ci
 COPY . .
-EXPOSE 5000
-CMD ["npm", "run", "dev"]
 
-# ---- Builder (for production) ----
-FROM node:20-alpine AS builder
-WORKDIR /app
+# ---- Production Runtime ----
+FROM base AS production
+ENV NODE_ENV=production
+
+# Copy package descriptors
 COPY package*.json ./
-RUN npm ci --only=production
+
+# Install only production dependencies
+RUN npm ci --omit=dev && npm cache clean --force
+
+# Copy application source code
 COPY src ./src
 
-# ---- Production runtime ----
-FROM node:20-alpine AS production
-WORKDIR /app
-ENV NODE_ENV=production
-COPY --from=builder /app/package*.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/src ./src
+# Change ownership of the app directory to the non-root 'node' user
+RUN chown -R node:node /usr/src/app
+
+# Run as the built-in non-root Node user for security
+USER node
+
 EXPOSE 5000
+
+# Use tini as entrypoint to correctly handle OS signals
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["node", "src/server.js"]
