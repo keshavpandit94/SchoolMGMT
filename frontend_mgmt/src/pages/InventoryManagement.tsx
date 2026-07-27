@@ -235,7 +235,7 @@ const InventoryManagement: React.FC = () => {
                           <Package size={20} color="#818CF8" />
                         </Avatar>
                       </TableCell>
-                      <TableCell fontWeight="semibold">{item.itemName}</TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>{item.itemName}</TableCell>
                       <TableCell>{item.category}</TableCell>
                       <TableCell>{item.quantity}</TableCell>
                       <TableCell>

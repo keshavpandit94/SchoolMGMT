@@ -76,7 +76,6 @@ const AttendanceManagement: React.FC = () => {
   // Time Window Settings State
   const [startTime, setStartTime] = useState('08:00');
   const [endTime, setEndTime] = useState('10:00');
-  const [isWindowOpen, setIsWindowOpen] = useState(true);
   const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
 
@@ -95,7 +94,6 @@ const AttendanceManagement: React.FC = () => {
       if (res.data.success) {
         setStartTime(res.data.settings.startTime);
         setEndTime(res.data.settings.endTime);
-        setIsWindowOpen(res.data.settings.isWindowOpen);
         setCutoffPassed(res.data.settings.isCutoffPassed);
       }
     } catch (err) {
@@ -291,15 +289,7 @@ const AttendanceManagement: React.FC = () => {
             }}
           />
 
-          <Button
-            variant="contained"
-            disabled={saving || loading}
-            onClick={handleSaveAttendance}
-            startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save size={18} />}
-            sx={{ bgcolor: '#6366F1', '&:hover': { bgcolor: '#4F46E5' }, textTransform: 'none', borderRadius: 2, px: 3 }}
-          >
-            {saving ? 'Saving...' : 'Save Attendance'}
-          </Button>
+
         </Box>
       </Box>
 
@@ -424,28 +414,7 @@ const AttendanceManagement: React.FC = () => {
               ))}
             </Box>
           </Grid>
-          <Grid item xs={12} sm={4} sx={{ textAlign: { sm: 'right' } }}>
-            <Box sx={{ display: 'inline-flex', gap: 1 }}>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() => handleBulkStatus('Present')}
-                startIcon={<CheckCircle2 size={14} color="#34D399" />}
-                sx={{ color: '#34D399', borderColor: 'rgba(16, 185, 129, 0.3)', textTransform: 'none' }}
-              >
-                Mark All Present
-              </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                onClick={() => handleBulkStatus('Absent')}
-                startIcon={<XCircle size={14} color="#FCA5A5" />}
-                sx={{ color: '#FCA5A5', borderColor: 'rgba(239, 68, 68, 0.3)', textTransform: 'none' }}
-              >
-                Mark All Absent
-              </Button>
-            </Box>
-          </Grid>
+
         </Grid>
       </Card>
 
@@ -519,60 +488,15 @@ const AttendanceManagement: React.FC = () => {
                     </Typography>
                   </TableCell>
                   <TableCell sx={{ textAlign: 'center' }}>
-                    <ButtonGroup size="small">
-                      <Button
-                        variant={row.status === 'Present' ? 'contained' : 'outlined'}
-                        onClick={() => handleStatusToggle(row.personId, 'Present')}
-                        sx={{
-                          bgcolor: row.status === 'Present' ? '#10B981' : 'transparent',
-                          color: row.status === 'Present' ? '#FFF' : '#34D399',
-                          borderColor: 'rgba(16, 185, 129, 0.3)',
-                          '&:hover': { bgcolor: '#059669' },
-                          textTransform: 'none',
-                        }}
-                      >
-                        Present
-                      </Button>
-                      <Button
-                        variant={row.status === 'Absent' ? 'contained' : 'outlined'}
-                        onClick={() => handleStatusToggle(row.personId, 'Absent')}
-                        sx={{
-                          bgcolor: row.status === 'Absent' ? '#EF4444' : 'transparent',
-                          color: row.status === 'Absent' ? '#FFF' : '#FCA5A5',
-                          borderColor: 'rgba(239, 68, 68, 0.3)',
-                          '&:hover': { bgcolor: '#DC2626' },
-                          textTransform: 'none',
-                        }}
-                      >
-                        Absent
-                      </Button>
-                      <Button
-                        variant={row.status === 'Late' ? 'contained' : 'outlined'}
-                        onClick={() => handleStatusToggle(row.personId, 'Late')}
-                        sx={{
-                          bgcolor: row.status === 'Late' ? '#F59E0B' : 'transparent',
-                          color: row.status === 'Late' ? '#FFF' : '#FBBF24',
-                          borderColor: 'rgba(245, 158, 11, 0.3)',
-                          '&:hover': { bgcolor: '#D97706' },
-                          textTransform: 'none',
-                        }}
-                      >
-                        Late
-                      </Button>
-                      <Button
-                        variant={row.status === 'On Leave' ? 'contained' : 'outlined'}
-                        onClick={() => handleStatusToggle(row.personId, 'On Leave')}
-                        sx={{
-                          bgcolor: row.status === 'On Leave' ? '#3B82F6' : 'transparent',
-                          color: row.status === 'On Leave' ? '#FFF' : '#60A5FA',
-                          borderColor: 'rgba(59, 130, 246, 0.3)',
-                          '&:hover': { bgcolor: '#2563EB' },
-                          textTransform: 'none',
-                        }}
-                      >
-                        On Leave
-                      </Button>
-                    </ButtonGroup>
+                    {row.status === 'Present' ? (
+                      <Chip label="Present" size="small" sx={{ bgcolor: 'rgba(16, 185, 129, 0.15)', color: '#34D399', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 'bold' }} />
+                    ) : row.status === 'Absent' ? (
+                      <Chip label="Absent" size="small" sx={{ bgcolor: 'rgba(239, 68, 68, 0.15)', color: '#FCA5A5', border: '1px solid rgba(239, 68, 68, 0.3)', fontWeight: 'bold' }} />
+                    ) : row.status === 'Late' ? (
+                      <Chip label="Late" size="small" sx={{ bgcolor: 'rgba(245, 158, 11, 0.15)', color: '#FBBF24', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 'bold' }} />
+                    ) : (
+                      <Chip label="On Leave" size="small" sx={{ bgcolor: 'rgba(59, 130, 246, 0.15)', color: '#60A5FA', border: '1px solid rgba(59, 130, 246, 0.3)', fontWeight: 'bold' }} />
+                    )}
                   </TableCell>
                   <TableCell>
                     <TextField

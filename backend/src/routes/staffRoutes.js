@@ -5,6 +5,7 @@ import {
   updateStaff,
   updateStaffStatus,
   deleteStaff,
+  approveStaffStatusRequest,
 } from '../controllers/staffController.js';
 import { protect, restrictTo } from '../middlewares/authMiddleware.js';
 
@@ -16,6 +17,7 @@ router.get('/', restrictTo('Admin', 'Principal', 'Teacher', 'Staff'), getStaff);
 router.get('/:id', restrictTo('Admin', 'Principal', 'Teacher', 'Staff'), getStaffById);
 
 router.patch('/:id/status', restrictTo('Admin', 'Principal'), updateStaffStatus);
+router.patch('/:id/approve-status', restrictTo('Admin'), approveStaffStatusRequest);
 router.put('/:id', restrictTo('Admin', 'Principal'), updateStaff);
 router.delete('/:id', restrictTo('Admin', 'Principal'), deleteStaff);
 

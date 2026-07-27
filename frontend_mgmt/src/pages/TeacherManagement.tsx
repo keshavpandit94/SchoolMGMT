@@ -59,6 +59,11 @@ interface Teacher {
   assignedClass?: string;
   assignedSection?: string;
   joinedDate: string;
+  statusReason?: string;
+  statusDuration?: number;
+  pendingStatus?: string;
+  pendingReason?: string;
+  pendingDuration?: number;
 }
 
 const DEPARTMENTS = [
@@ -159,6 +164,61 @@ const TeacherManagement: React.FC = () => {
   const [statusMenuAnchor, setStatusMenuAnchor] = useState<null | HTMLElement>(null);
   const [selectedTeacherForStatus, setSelectedTeacherForStatus] = useState<Teacher | null>(null);
 
+  // States for Leave/Suspension details dialog
+  const [statusDialogOpen, setStatusDialogOpen] = useState(false);
+  const [selectedStatusToApply, setSelectedStatusToApply] = useState<Teacher['status'] | 'Deleted'>('Active');
+  const [statusReason, setStatusReason] = useState('');
+  const [statusDuration, setStatusDuration] = useState('');
+  const [selectedTeacherForStatusChange, setSelectedTeacherForStatusChange] = useState<Teacher | null>(null);
+
+  const handleStatusMenuClick = (status: Teacher['status']) => {
+    setStatusMenuAnchor(null);
+    setSelectedStatusToApply(status);
+    setStatusReason('');
+    setStatusDuration('');
+    setSelectedTeacherForStatusChange(selectedTeacherForStatus);
+    setStatusDialogOpen(true);
+  };
+
+  const handleDeleteClick = (teacher: Teacher) => {
+    setSelectedTeacherForStatusChange(teacher);
+    setSelectedStatusToApply('Deleted');
+    setStatusReason('');
+    setStatusDuration('');
+    setStatusDialogOpen(true);
+  };
+
+  const handleStatusDialogSubmit = async () => {
+    if (!selectedTeacherForStatusChange) return;
+
+    try {
+      if (selectedStatusToApply === 'Deleted') {
+        await axiosInstance.delete(`/api/teachers/${selectedTeacherForStatusChange._id}`, {
+          data: { reason: statusReason }
+        });
+      } else {
+        await axiosInstance.patch(`/api/teachers/${selectedTeacherForStatusChange._id}/status`, {
+          status: selectedStatusToApply,
+          reason: statusReason,
+          duration: Number(statusDuration) || 0
+        });
+      }
+      setStatusDialogOpen(false);
+      fetchTeachers();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Error processing status change request');
+    }
+  };
+
+  const handleApproveStatusRequest = async (id: string, approve: boolean) => {
+    try {
+      await axiosInstance.patch(`/api/teachers/${id}/approve-status`, { approve });
+      fetchTeachers();
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Failed to approve status request');
+    }
+  };
+
   const fetchTeachers = async () => {
     setLoading(true);
     try {
@@ -200,7 +260,7 @@ const TeacherManagement: React.FC = () => {
       setName('');
       setEmail('');
       setPhone('');
-      setPinCode('1234');
+      setPinCode(Math.floor(1000 + Math.random() * 9000).toString());
       setPassword('');
       setDepartment('Science');
       setDesignation('Subject Teacher');
@@ -402,40 +462,86 @@ const TeacherManagement: React.FC = () => {
                       <Chip label="Subject Teacher" size="small" variant="outlined" sx={{ color: '#64748B', borderColor: 'rgba(255,255,255,0.1)' }} />
                     )}
                   </TableCell>
-                  <TableCell>{renderStatusChip(teacher.status)}</TableCell>
-                  <TableCell>
-                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                      {teacher.subjectsTaught && teacher.subjectsTaught.length > 0 ? (
-                        teacher.subjectsTaught.map((s) => (
-                          <Chip key={s} label={s} size="small" variant="outlined" sx={{ borderColor: 'rgba(6, 182, 212, 0.3)', color: '#22D3EE', fontSize: 11 }} />
-                        ))
-                      ) : (
-                        <Typography variant="caption" sx={{ color: '#64748B' }}>None assigned</Typography>
-                      )}
-                    </Box>
-                  </TableCell>
-                  {canModify && (
-                    <TableCell sx={{ textAlign: 'center' }}>
-                      <Button
-                        size="small"
-                        variant="outlined"
-                        onClick={(e) => {
-                          setSelectedTeacherForStatus(teacher);
-                          setStatusMenuAnchor(e.currentTarget);
-                        }}
-                        sx={{ mr: 1, color: '#94A3B8', borderColor: 'rgba(255,255,255,0.1)', textTransform: 'none', fontSize: 11 }}
-                      >
-                        Status
-                      </Button>
+                   <TableCell>
+                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                       {renderStatusChip(teacher.status)}
+                       {teacher.statusReason && (
+                         <Typography variant="caption" sx={{ color: '#94A3B8', fontStyle: 'italic', maxWidth: 150, display: 'block' }}>
+                           Reason: {teacher.statusReason} {teacher.statusDuration > 0 && `(${teacher.statusDuration} days)`}
+                         </Typography>
+                       )}
+                       {teacher.pendingStatus && teacher.pendingStatus !== 'None' && (
+                         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, mt: 0.5 }}>
+                           <Chip
+                             label={`Pending: ${teacher.pendingStatus}`}
+                             size="small"
+                             variant="outlined"
+                             sx={{ fontSize: 10, borderColor: 'rgba(245, 158, 11, 0.4)', color: '#FBBF24' }}
+                           />
+                           {teacher.pendingReason && (
+                             <Typography variant="caption" sx={{ color: '#FBBF24', fontSize: 10, fontStyle: 'italic', maxWidth: 150, display: 'block' }}>
+                               "Why: {teacher.pendingReason}" {teacher.pendingDuration > 0 && `(${teacher.pendingDuration} days)`}
+                             </Typography>
+                           )}
+                           {user?.role === 'Admin' && (
+                             <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
+                               <Button
+                                 size="small"
+                                 variant="contained"
+                                 color="success"
+                                 onClick={() => handleApproveStatusRequest(teacher._id, true)}
+                                 sx={{ py: 0.25, px: 1, minWidth: 0, fontSize: 10, textTransform: 'none' }}
+                               >
+                                 Approve
+                               </Button>
+                               <Button
+                                 size="small"
+                                 variant="contained"
+                                 color="error"
+                                 onClick={() => handleApproveStatusRequest(teacher._id, false)}
+                                 sx={{ py: 0.25, px: 1, minWidth: 0, fontSize: 10, textTransform: 'none' }}
+                               >
+                                 Reject
+                               </Button>
+                             </Box>
+                           )}
+                         </Box>
+                       )}
+                     </Box>
+                   </TableCell>
+                   <TableCell>
+                     <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                       {teacher.subjectsTaught && teacher.subjectsTaught.length > 0 ? (
+                         teacher.subjectsTaught.map((s) => (
+                           <Chip key={s} label={s} size="small" variant="outlined" sx={{ borderColor: 'rgba(6, 182, 212, 0.3)', color: '#22D3EE', fontSize: 11 }} />
+                         ))
+                       ) : (
+                         <Typography variant="caption" sx={{ color: '#64748B' }}>None assigned</Typography>
+                       )}
+                     </Box>
+                   </TableCell>
+                   {canModify && (
+                     <TableCell sx={{ textAlign: 'center' }}>
+                       <Button
+                         size="small"
+                         variant="outlined"
+                         onClick={(e) => {
+                           setSelectedTeacherForStatus(teacher);
+                           setStatusMenuAnchor(e.currentTarget);
+                         }}
+                         sx={{ mr: 1, color: '#94A3B8', borderColor: 'rgba(255,255,255,0.1)', textTransform: 'none', fontSize: 11 }}
+                       >
+                         Status
+                       </Button>
 
-                      <IconButton onClick={() => handleOpenDialog(teacher)} sx={{ color: '#6366F1' }}>
-                        <Edit2 size={16} />
-                      </IconButton>
-                      <IconButton onClick={() => handleDeleteTeacher(teacher._id)} sx={{ color: '#EF4444' }}>
-                        <Trash2 size={16} />
-                      </IconButton>
-                    </TableCell>
-                  )}
+                       <IconButton onClick={() => handleOpenDialog(teacher)} sx={{ color: '#6366F1' }}>
+                         <Edit2 size={16} />
+                       </IconButton>
+                       <IconButton onClick={() => handleDeleteClick(teacher)} sx={{ color: '#EF4444' }}>
+                         <Trash2 size={16} />
+                       </IconButton>
+                     </TableCell>
+                   )}
                 </TableRow>
               ))}
             </TableBody>
@@ -452,12 +558,83 @@ const TeacherManagement: React.FC = () => {
           sx: { bgcolor: '#1E293B', color: '#F8FAFC', border: '1px solid rgba(255,255,255,0.1)' },
         }}
       >
-        <MenuItem onClick={() => handleStatusChange('Active')} sx={{ color: '#34D399' }}>🟢 Mark Active</MenuItem>
-        <MenuItem onClick={() => handleStatusChange('On Leave')} sx={{ color: '#60A5FA' }}>🔵 Mark On Leave</MenuItem>
-        <MenuItem onClick={() => handleStatusChange('Suspended')} sx={{ color: '#FCA5A5' }}>🔴 Suspend Teacher</MenuItem>
-        <MenuItem onClick={() => handleStatusChange('Resigned')} sx={{ color: '#FBBF24' }}>🟡 Resigned</MenuItem>
-        <MenuItem onClick={() => handleStatusChange('Retired')} sx={{ color: '#9CA3AF' }}>⚪ Retired</MenuItem>
+        <MenuItem onClick={() => handleStatusMenuClick('Active')} sx={{ color: '#34D399' }}>🟢 Mark Active</MenuItem>
+        <MenuItem onClick={() => handleStatusMenuClick('On Leave')} sx={{ color: '#60A5FA' }}>🔵 Mark On Leave</MenuItem>
+        <MenuItem onClick={() => handleStatusMenuClick('Suspended')} sx={{ color: '#FCA5A5' }}>🔴 Suspend Teacher</MenuItem>
+        <MenuItem onClick={() => handleStatusMenuClick('Resigned')} sx={{ color: '#FBBF24' }}>🟡 Resigned</MenuItem>
+        <MenuItem onClick={() => handleStatusMenuClick('Retired')} sx={{ color: '#9CA3AF' }}>⚪ Retired</MenuItem>
       </Menu>
+
+      {/* Leave/Suspension/Action Details Dialog */}
+      <Dialog
+        open={statusDialogOpen}
+        onClose={() => setStatusDialogOpen(false)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: '#0B1220',
+            color: '#FDFBF7',
+            border: '1px solid rgba(255,255,255,0.08)',
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle sx={{ fontWeight: 'bold' }}>
+          {selectedStatusToApply === 'Deleted'
+            ? 'Delete/Fire Account Request'
+            : selectedStatusToApply === 'On Leave'
+            ? 'Apply for Leave'
+            : selectedStatusToApply === 'Suspended'
+            ? 'Suspend Account'
+            : `Set status to ${selectedStatusToApply}`}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, mt: 1 }}>
+            <Typography variant="body2" sx={{ color: '#94A3B8' }}>
+              {selectedStatusToApply === 'Deleted'
+                ? 'Please provide a reason for deleting/firing this account.'
+                : `Please specify the details for marking this account as ${selectedStatusToApply}.`}
+            </Typography>
+
+            <TextField
+              label="Reason / Remarks"
+              fullWidth
+              required
+              multiline
+              rows={3}
+              value={statusReason}
+              onChange={(e) => setStatusReason(e.target.value)}
+              sx={{ input: { color: '#FFF' }, label: { color: '#94A3B8' }, fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
+            />
+
+            {(selectedStatusToApply === 'On Leave' || selectedStatusToApply === 'Suspended') && (
+              <TextField
+                label="Duration (in Days)"
+                fullWidth
+                required
+                type="number"
+                value={statusDuration}
+                onChange={(e) => setStatusDuration(e.target.value)}
+                sx={{ input: { color: '#FFF' }, label: { color: '#94A3B8' }, fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
+              />
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setStatusDialogOpen(false)} sx={{ color: '#94A3B8', textTransform: 'none' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleStatusDialogSubmit}
+            sx={{ textTransform: 'none', borderRadius: 2 }}
+          >
+            Submit
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Create / Edit Teacher Dialog */}
       <Dialog
@@ -529,12 +706,13 @@ const TeacherManagement: React.FC = () => {
                   label="Security PIN Passcode (4 Digits)"
                   required
                   value={pinCode}
+                  disabled={!editingTeacher || user?.role !== 'Admin'}
                   onChange={(e) => {
                     const val = e.target.value.replace(/\D/g, '').slice(0, 4);
                     setPinCode(val);
                   }}
                   placeholder="1234"
-                  helperText="4-digit PIN for Touchscreen Attendance Kiosk check-in"
+                  helperText={!editingTeacher ? "Auto-generated random PIN for Kiosk check-in" : user?.role !== 'Admin' ? "Security PIN (Only Admin can modify)" : "Security PIN (Admin editable once every 14 days)"}
                   inputProps={{ maxLength: 4, pattern: '[0-9]*' }}
                   InputProps={{
                     startAdornment: (

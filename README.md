@@ -111,3 +111,46 @@ To run front-end component tests:
 cd frontend
 npm run test
 ```
+
+---
+
+## 🚀 Recent System Upgrades & Redesign (July 2026)
+
+### 1. Visual & Aesthetic Redesign (Indian Luxury Theme)
+We transformed the interface from a generic bootstrap-style layout into a high-end, premium dashboard with an elegant Indian aesthetic:
+- **Colors**: Adopted a royal custom palette using Midnight Indigo (deep background), Royal Saffron (primary accents), Peacock Teal (secondary highlights), and subtle Sandalwood Gold details.
+- **Background**: Integrated a beautiful repeating Mandala pattern background overlay with soft glowing amber diya backdrops.
+- **Typography**: Implemented the serif typeface **'Marcellus'** for titles and headers to give a premium, authentic feel.
+- **Glassmorphic Cards**: Designed modern transparent container cards with saffron-glowing border highlights.
+
+### 2. Added Features & Enhancements
+- **Principal Account Registration**: Added a selector in the registration modal to directly create "School Principal" and "System Admin" accounts. Unrelated support-staff fields (e.g. shift, department) are hidden dynamically when selecting these roles.
+- **Leave & Suspension Dialog Forms**: Changing status to "On Leave" or "Suspended" now prompts the user with a dialog to provide the **Reason (Why)** and **Duration (in Days)**.
+- **Principal Approval Workflow**:
+  - Principals can directly mark teachers or staff "On Leave".
+  - If a Principal attempts to **Delete (Fire)** or set status to **Suspended**, **Resigned**, or **Retired**, the request is saved in a pending state.
+  - Admin accounts can review these pending requests with their reasons/durations and click **Approve** or **Reject** directly from the roster table.
+- **Touch Kiosk Security PIN Controls**:
+  - **Auto-Generation**: Security PINs are automatically generated as random 4-digit numbers on creation and are read-only.
+  - **Role Restriction**: Only Admin accounts are authorized to modify a user's Security PIN during editing.
+  - **14-Day Lock**: Implemented a security rule restricting Security PIN changes to a maximum of once every 14 days (both front-end and back-end enforced).
+
+### 3. Removed Features
+- **Manual Save Attendance Button**: Removed the bulk "Save Attendance" button as attendance entries are logged dynamically by the check-in systems.
+- **Self Check-in Kiosk Sidebar Tab**: Hidden the "Self Check-in Kiosk" navigation tab from the dashboard sidebar layout.
+- **Bulk Attendance Marks**: Removed the "Mark All Present" and "Mark All Absent" buttons from both Student and Staff/Teacher lists to ensure high integrity and prevent manual spoofing of records.
+- **Manual Attendance Edits**: Replaced the clickable ButtonGroup status toggle elements in the tables with read-only **Status Chips** (Present, Absent, Late, On Leave) to prevent manual override errors.
+
+### 4. Technical Implementation Summary
+#### Database Schema Updates
+- **User Model**: Added `pinUpdatedAt` (Date) to track security PIN modifications.
+- **Teacher & Staff Models**: Added fields for leaf/suspension metadata and approval flows:
+  - `statusReason` / `statusDuration`
+  - `pendingStatus` / `pendingReason` / `pendingDuration`
+
+#### API Endpoint Modifications
+- `PATCH /api/teachers/:id/status` & `PATCH /api/staff/:id/status`: Integrated role checks and request logic.
+- `PATCH /api/teachers/:id/approve-status` & `PATCH /api/staff/:id/approve-status` **[NEW]**: Allows Admins to approve/reject status changes or deletion requests.
+- `PUT /api/teachers/:id` & `PUT /api/staff/:id`: Enforced the 14-day PIN change rules and Admin role restrictions.
+- `DELETE /api/teachers/:id` & `DELETE /api/staff/:id`: Modified to submit pending requests under Principal accounts.
+

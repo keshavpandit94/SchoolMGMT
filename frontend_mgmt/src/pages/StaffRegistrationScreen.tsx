@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -11,9 +11,8 @@ import {
   CircularProgress,
   Alert,
   Chip,
-  Paper,
 } from '@mui/material';
-import { Camera, ScanFace, Check, ShieldCheck, RefreshCw } from 'lucide-react';
+import { Camera, ShieldCheck, RefreshCw } from 'lucide-react';
 import axiosInstance from '../services/axiosInstance';
 import { useWebcam } from '../hooks/useWebcam';
 import { extractFacialDescriptorFromCanvas } from '../services/faceApiService';
@@ -35,17 +34,15 @@ const StaffRegistrationScreen: React.FC = () => {
 
   // Facial vectors captured (3-5 reference images)
   const [capturedDescriptors, setCapturedDescriptors] = useState<number[][]>([]);
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const { videoRef, startWebcam, stopWebcam, cameraActive } = useWebcam();
+  const { videoRef, startWebcam, stopWebcam } = useWebcam();
 
   // Fetch staff & teacher list for admin registration
   useEffect(() => {
     const fetchUsers = async () => {
-      setLoading(true);
       try {
         const [teachersRes, staffRes] = await Promise.all([
           axiosInstance.get('/api/teachers'),
@@ -67,8 +64,6 @@ const StaffRegistrationScreen: React.FC = () => {
         if (users.length > 0) setSelectedUserId(users[0]._id);
       } catch (err: any) {
         console.error(err);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -78,7 +73,7 @@ const StaffRegistrationScreen: React.FC = () => {
     return () => {
       stopWebcam();
     };
-  }, []);
+  }, [startWebcam, stopWebcam]);
 
   // Capture reference frame & extract 128-d descriptor vector
   const handleCaptureDescriptor = () => {

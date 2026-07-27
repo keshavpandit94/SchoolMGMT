@@ -16,6 +16,8 @@ import uploadRoutes from './routes/uploadRoutes.js';
 import attendanceRoutes from './routes/attendanceRoutes.js';
 import kioskRoutes from './routes/kioskRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
+import noticeRoutes from './routes/noticeRoutes.js';
+import eventRoutes from './routes/eventRoutes.js';
 import { errorHandler, notFound } from './middlewares/errorMiddleware.js';
 
 // Load environment variables
@@ -116,6 +118,8 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/attendance', attendanceRoutes);
 app.use('/api/kiosk', kioskRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/notices', noticeRoutes);
+app.use('/api/events', eventRoutes);
 
 // Error Middlewares
 app.use(notFound);

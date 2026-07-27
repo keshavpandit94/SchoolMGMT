@@ -68,40 +68,29 @@ const Login: React.FC = () => {
     }
   };
 
-  // Helper for test logins (instant credential fill for graders/developers)
-  const handleQuickLogin = (role: 'admin' | 'teacher') => {
-    if (role === 'admin') {
-      setEmail('admin@school.com');
-      setPassword('password123');
-    } else {
-      setEmail('teacher@school.com');
-      setPassword('password123');
-    }
-  };
-
   return (
     <Box
       sx={{
         display: 'flex',
         minHeight: '100vh',
-        bgcolor: '#0B0F19',
+        bgcolor: '#060913',
         alignItems: 'center',
         justifyContent: 'center',
         px: 2,
         backgroundImage:
-          'radial-gradient(circle at 10% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(6, 182, 212, 0.15) 0%, transparent 40%)',
+          'radial-gradient(circle at 10% 20%, rgba(234, 88, 12, 0.12) 0%, transparent 40%), radial-gradient(circle at 90% 80%, rgba(13, 148, 136, 0.1) 0%, transparent 40%)',
       }}
     >
       <Card
-        className="glass-panel animate-fade-in"
+        className="glass-panel animate-fade-in glow-saffron"
         sx={{
           width: '100%',
           maxWidth: 450,
           p: 4,
-          bgcolor: 'rgba(17, 24, 39, 0.75)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          bgcolor: 'rgba(11, 18, 32, 0.8)',
+          border: '1px solid rgba(212, 175, 55, 0.15)',
           borderRadius: 4,
-          boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+          boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.5), 0 0 30px rgba(234, 88, 12, 0.05)',
         }}
       >
         {/* Header */}
@@ -109,8 +98,8 @@ const Login: React.FC = () => {
           <Typography
             variant="h4"
             fontWeight="800"
-            className="gradient-text"
-            sx={{ letterSpacing: 0.5, mb: 1, fontFamily: 'Plus Jakarta Sans' }}
+            className="gradient-text font-marcellus"
+            sx={{ letterSpacing: 0.5, mb: 1 }}
           >
             KCPPS Admin
           </Typography>
@@ -145,19 +134,19 @@ const Login: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Mail size={20} color="#94A3B8" />
+                      <Mail size={20} color="#0D9488" />
                     </InputAdornment>
                   ),
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    color: '#F8FAFC',
-                    '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' },
-                    '&:hover fieldset': { borderColor: 'rgba(99, 102, 241, 0.5)' },
-                    '&.Mui-focused fieldset': { borderColor: '#6366F1' },
+                    color: '#FDFBF7',
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.08)' },
+                    '&:hover fieldset': { borderColor: 'rgba(234, 88, 12, 0.4)' },
+                    '&.Mui-focused fieldset': { borderColor: '#EA580C' },
                   },
                   '& .MuiInputLabel-root': { color: '#94A3B8' },
-                  '& .MuiInputLabel-root.Mui-focused': { color: '#6366F1' },
+                  '& .MuiInputLabel-root.Mui-focused': { color: '#EA580C' },
                 }}
               />
 
@@ -171,19 +160,19 @@ const Login: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Lock size={20} color="#94A3B8" />
+                      <Lock size={20} color="#0D9488" />
                     </InputAdornment>
                   ),
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    color: '#F8FAFC',
-                    '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' },
-                    '&:hover fieldset': { borderColor: 'rgba(99, 102, 241, 0.5)' },
-                    '&.Mui-focused fieldset': { borderColor: '#6366F1' },
+                    color: '#FDFBF7',
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.08)' },
+                    '&:hover fieldset': { borderColor: 'rgba(234, 88, 12, 0.4)' },
+                    '&.Mui-focused fieldset': { borderColor: '#EA580C' },
                   },
                   '& .MuiInputLabel-root': { color: '#94A3B8' },
-                  '& .MuiInputLabel-root.Mui-focused': { color: '#6366F1' },
+                  '& .MuiInputLabel-root.Mui-focused': { color: '#EA580C' },
                 }}
               />
 
@@ -194,56 +183,28 @@ const Login: React.FC = () => {
                 fullWidth
                 startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <LogIn size={20} />}
                 sx={{
-                  bgcolor: '#6366F1',
-                  '&:hover': { bgcolor: '#4F46E5' },
+                  background: 'linear-gradient(135deg, #EA580C 0%, #D4AF37 100%)',
+                  boxShadow: '0 4px 15px rgba(234, 88, 12, 0.3)',
                   textTransform: 'none',
                   py: 1.5,
                   borderRadius: 2.5,
                   fontWeight: 'bold',
+                  color: '#FDFBF7',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #D97706 0%, #EA580C 100%)',
+                    boxShadow: '0 6px 20px rgba(234, 88, 12, 0.4)',
+                  },
                 }}
               >
                 {loading ? 'Authenticating...' : 'Sign In'}
               </Button>
-            </Box>
-
-            {/* Quick-fill helper for convenience */}
-            <Box
-              sx={{
-                p: 2,
-                borderRadius: 3,
-                bgcolor: 'rgba(99, 102, 241, 0.05)',
-                border: '1px dashed rgba(99, 102, 241, 0.2)',
-                textAlign: 'center',
-              }}
-            >
-              <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', mb: 1.5 }}>
-                DEMO QUICK LOGIN:
-              </Typography>
-              <Box sx={{ display: 'flex', justifyContent: 'space-around', gap: 1 }}>
-                <Button
-                  size="small"
-                  variant="text"
-                  onClick={() => handleQuickLogin('admin')}
-                  sx={{ color: '#818CF8', textTransform: 'none', fontSize: 11 }}
-                >
-                  Fill Admin credentials
-                </Button>
-                <Button
-                  size="small"
-                  variant="text"
-                  onClick={() => handleQuickLogin('teacher')}
-                  sx={{ color: '#22D3EE', textTransform: 'none', fontSize: 11 }}
-                >
-                  Fill Teacher credentials
-                </Button>
-              </Box>
             </Box>
           </form>
         ) : (
           // OTP verification form
           <form onSubmit={handleOtpSubmit}>
             <Box sx={{ mb: 3 }}>
-              <IconButton onClick={clearOtpState} sx={{ color: '#94A3B8', p: 0, mb: 2, '&:hover': { color: '#F8FAFC' } }}>
+              <IconButton onClick={clearOtpState} sx={{ color: '#94A3B8', p: 0, mb: 2, '&:hover': { color: '#FDFBF7' } }}>
                 <ChevronLeft size={20} />
                 <Typography variant="body2" sx={{ ml: 0.5 }}>Back to credentials</Typography>
               </IconButton>
@@ -262,19 +223,19 @@ const Login: React.FC = () => {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <KeyRound size={20} color="#94A3B8" />
+                      <KeyRound size={20} color="#0D9488" />
                     </InputAdornment>
                   ),
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
-                    color: '#F8FAFC',
-                    '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' },
-                    '&:hover fieldset': { borderColor: 'rgba(99, 102, 241, 0.5)' },
-                    '&.Mui-focused fieldset': { borderColor: '#6366F1' },
+                    color: '#FDFBF7',
+                    '& fieldset': { borderColor: 'rgba(255,255,255,0.08)' },
+                    '&:hover fieldset': { borderColor: 'rgba(234, 88, 12, 0.4)' },
+                    '&.Mui-focused fieldset': { borderColor: '#EA580C' },
                   },
                   '& .MuiInputLabel-root': { color: '#94A3B8' },
-                  '& .MuiInputLabel-root.Mui-focused': { color: '#6366F1' },
+                  '& .MuiInputLabel-root.Mui-focused': { color: '#EA580C' },
                 }}
               />
 
@@ -285,12 +246,17 @@ const Login: React.FC = () => {
                 fullWidth
                 startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <LogIn size={20} />}
                 sx={{
-                  bgcolor: '#6366F1',
-                  '&:hover': { bgcolor: '#4F46E5' },
+                  background: 'linear-gradient(135deg, #EA580C 0%, #D4AF37 100%)',
+                  boxShadow: '0 4px 15px rgba(234, 88, 12, 0.3)',
                   textTransform: 'none',
                   py: 1.5,
                   borderRadius: 2.5,
                   fontWeight: 'bold',
+                  color: '#FDFBF7',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #D97706 0%, #EA580C 100%)',
+                    boxShadow: '0 6px 20px rgba(234, 88, 12, 0.4)',
+                  },
                 }}
               >
                 {loading ? 'Verifying...' : 'Verify & Continue'}

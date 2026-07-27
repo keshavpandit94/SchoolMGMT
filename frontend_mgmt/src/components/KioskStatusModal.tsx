@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Dialog, Box, Typography, Avatar, Chip, Button } from '@mui/material';
-import { CheckCircle2, AlertTriangle, Clock, MapPin, Award } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
 import { playAudioFeedback } from '../services/faceApiService';
 
 interface KioskStatusModalProps {

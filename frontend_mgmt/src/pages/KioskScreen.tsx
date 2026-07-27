@@ -1,23 +1,15 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
   Typography,
-  Grid,
   Avatar,
   Chip,
-  CircularProgress,
-  Paper,
   Button,
 } from '@mui/material';
 import {
   ScanFace,
   Clock,
-  ShieldCheck,
-  CheckCircle2,
-  KeyRound,
-  RefreshCw,
-  Camera,
 } from 'lucide-react';
 import axios from 'axios';
 import TouchKeypad from '../components/TouchKeypad';
@@ -60,7 +52,7 @@ const KioskScreen: React.FC = () => {
   // Live Clock
   const [currentTime, setCurrentTime] = useState(new Date().toLocaleTimeString());
 
-  const { videoRef, startWebcam, stopWebcam, cameraActive } = useWebcam();
+  const { videoRef, startWebcam, stopWebcam } = useWebcam();
 
   useEffect(() => {
     const timer = setInterval(() => {

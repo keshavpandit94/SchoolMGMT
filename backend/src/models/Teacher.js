@@ -27,6 +27,27 @@ const TeacherSchema = new mongoose.Schema(
       enum: ['Active', 'On Leave', 'Suspended', 'Resigned', 'Retired'],
       default: 'Active',
     },
+    statusReason: {
+      type: String,
+      default: '',
+    },
+    statusDuration: {
+      type: Number,
+      default: 0,
+    },
+    pendingStatus: {
+      type: String,
+      enum: ['Active', 'On Leave', 'Suspended', 'Resigned', 'Retired', 'Deleted', 'None'],
+      default: 'None',
+    },
+    pendingReason: {
+      type: String,
+      default: '',
+    },
+    pendingDuration: {
+      type: Number,
+      default: 0,
+    },
     qualifications: [
       {
         type: String,

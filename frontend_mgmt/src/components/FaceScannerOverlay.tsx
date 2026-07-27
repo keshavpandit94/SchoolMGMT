@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
-import { Scan, ShieldCheck } from 'lucide-react';
+import { Scan } from 'lucide-react';
 
 interface FaceScannerOverlayProps {
   scanning: boolean;

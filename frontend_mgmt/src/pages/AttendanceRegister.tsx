@@ -23,7 +23,6 @@ import {
   CircularProgress,
   Alert,
   Avatar,
-  Chip,
   ButtonGroup,
 } from '@mui/material';
 import {
@@ -35,7 +34,6 @@ import {
   Save,
   Lock,
   UserCheck,
-  AlertCircle,
 } from 'lucide-react';
 
 interface StudentAttendanceRow {
@@ -80,7 +78,7 @@ const StudentClassAttendance: React.FC = () => {
       if (teacherDetails.assignedClass) setClassName(teacherDetails.assignedClass);
       if (teacherDetails.assignedSection) setSection(teacherDetails.assignedSection);
     }
-  }, [user]);
+  }, [user, teacherDetails?.isClassTeacher, teacherDetails?.assignedClass, teacherDetails?.assignedSection]);
 
   // Check if current user is authorized to manually input/save attendance for this specific class & section
   const isAssignedClassTeacher =
@@ -244,30 +242,7 @@ const StudentClassAttendance: React.FC = () => {
               ))}
             </TextField>
           </Grid>
-          <Grid item xs={12} sm={4} sx={{ textAlign: { sm: 'right' } }}>
-            <Box sx={{ display: 'inline-flex', gap: 1 }}>
-              <Button
-                size="small"
-                variant="outlined"
-                disabled={!canInputAttendance}
-                onClick={() => handleBulkStatus('Present')}
-                startIcon={<CheckCircle2 size={14} color={canInputAttendance ? '#34D399' : '#64748B'} />}
-                sx={{ color: canInputAttendance ? '#34D399' : '#64748B', borderColor: 'rgba(16, 185, 129, 0.3)', textTransform: 'none' }}
-              >
-                All Present
-              </Button>
-              <Button
-                size="small"
-                variant="outlined"
-                disabled={!canInputAttendance}
-                onClick={() => handleBulkStatus('Absent')}
-                startIcon={<XCircle size={14} color={canInputAttendance ? '#FCA5A5' : '#64748B'} />}
-                sx={{ color: canInputAttendance ? '#FCA5A5' : '#64748B', borderColor: 'rgba(239, 68, 68, 0.3)', textTransform: 'none' }}
-              >
-                All Absent
-              </Button>
-            </Box>
-          </Grid>
+
         </Grid>
       </Card>
 
@@ -340,44 +315,15 @@ const StudentClassAttendance: React.FC = () => {
                     </Box>
                   </TableCell>
                   <TableCell sx={{ textAlign: 'center' }}>
-                    <ButtonGroup size="small" disabled={!canInputAttendance}>
-                      <Button
-                        variant={st.status === 'Present' ? 'contained' : 'outlined'}
-                        onClick={() => handleStatusToggle(st._id, 'Present')}
-                        sx={{
-                          bgcolor: st.status === 'Present' ? '#10B981' : 'transparent',
-                          color: st.status === 'Present' ? '#FFF' : '#34D399',
-                          borderColor: 'rgba(16, 185, 129, 0.3)',
-                          textTransform: 'none',
-                        }}
-                      >
-                        Present
-                      </Button>
-                      <Button
-                        variant={st.status === 'Absent' ? 'contained' : 'outlined'}
-                        onClick={() => handleStatusToggle(st._id, 'Absent')}
-                        sx={{
-                          bgcolor: st.status === 'Absent' ? '#EF4444' : 'transparent',
-                          color: st.status === 'Absent' ? '#FFF' : '#FCA5A5',
-                          borderColor: 'rgba(239, 68, 68, 0.3)',
-                          textTransform: 'none',
-                        }}
-                      >
-                        Absent
-                      </Button>
-                      <Button
-                        variant={st.status === 'Late' ? 'contained' : 'outlined'}
-                        onClick={() => handleStatusToggle(st._id, 'Late')}
-                        sx={{
-                          bgcolor: st.status === 'Late' ? '#F59E0B' : 'transparent',
-                          color: st.status === 'Late' ? '#FFF' : '#FBBF24',
-                          borderColor: 'rgba(245, 158, 11, 0.3)',
-                          textTransform: 'none',
-                        }}
-                      >
-                        Late
-                      </Button>
-                    </ButtonGroup>
+                    {st.status === 'Present' ? (
+                      <Chip label="Present" size="small" sx={{ bgcolor: 'rgba(16, 185, 129, 0.15)', color: '#34D399', border: '1px solid rgba(16, 185, 129, 0.3)', fontWeight: 'bold' }} />
+                    ) : st.status === 'Absent' ? (
+                      <Chip label="Absent" size="small" sx={{ bgcolor: 'rgba(239, 68, 68, 0.15)', color: '#FCA5A5', border: '1px solid rgba(239, 68, 68, 0.3)', fontWeight: 'bold' }} />
+                    ) : st.status === 'Late' ? (
+                      <Chip label="Late" size="small" sx={{ bgcolor: 'rgba(245, 158, 11, 0.15)', color: '#FBBF24', border: '1px solid rgba(245, 158, 11, 0.3)', fontWeight: 'bold' }} />
+                    ) : (
+                      <Chip label="Unmarked" size="small" variant="outlined" sx={{ color: '#64748B', borderColor: 'rgba(255,255,255,0.1)' }} />
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

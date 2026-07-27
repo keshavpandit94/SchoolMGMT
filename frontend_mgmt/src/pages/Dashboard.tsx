@@ -115,10 +115,10 @@ const Dashboard: React.FC = () => {
   };
 
   const statCards = [
-    { title: 'Total Students', value: stats.students, icon: <Users size={28} color="#6366F1" />, color: '#6366F1', path: '/students' },
-    { title: 'Teachers', value: stats.teachers, icon: <GraduationCap size={28} color="#06B6D4" />, color: '#06B6D4', path: '/teachers' },
-    { title: 'Support Staff', value: stats.staff, icon: <ShieldCheck size={28} color="#10B981" />, color: '#10B981', path: '/staff' },
-    { title: 'Inventory Assets', value: stats.inventory, icon: <Hammer size={28} color="#F59E0B" />, color: '#F59E0B', path: '/inventory' },
+    { title: 'Total Students', value: stats.students, icon: <Users size={28} color="#EA580C" />, color: '#EA580C', path: '/students' },
+    { title: 'Teachers', value: stats.teachers, icon: <GraduationCap size={28} color="#0D9488" />, color: '#0D9488', path: '/teachers' },
+    { title: 'Support Staff', value: stats.staff, icon: <ShieldCheck size={28} color="#D4AF37" />, color: '#D4AF37', path: '/staff' },
+    { title: 'Inventory Assets', value: stats.inventory, icon: <Hammer size={28} color="#E11D48" />, color: '#E11D48', path: '/inventory' },
   ];
 
   return (
@@ -129,14 +129,14 @@ const Dashboard: React.FC = () => {
         sx={{
           p: 4,
           mb: 4,
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(6, 182, 212, 0.1) 100%)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          background: 'linear-gradient(135deg, rgba(234, 88, 12, 0.12) 0%, rgba(13, 148, 136, 0.08) 100%)',
+          border: '1px solid rgba(212, 175, 55, 0.15)',
           borderRadius: 4,
         }}
       >
         <Grid container alignItems="center" spacing={3}>
           <Grid item xs={12} sm={8}>
-            <Typography variant="h4" fontWeight="800" gutterBottom sx={{ fontFamily: 'Plus Jakarta Sans', color: '#F8FAFC' }}>
+            <Typography variant="h4" fontWeight="800" gutterBottom className="font-marcellus" sx={{ color: '#FDFBF7' }}>
               Welcome back, {user?.name}!
             </Typography>
             <Typography variant="body1" sx={{ color: '#94A3B8', mb: 2 }}>
@@ -148,7 +148,7 @@ const Dashboard: React.FC = () => {
                   variant="contained"
                   onClick={() => navigate('/students')}
                   startIcon={<PlusCircle size={18} />}
-                  sx={{ bgcolor: '#6366F1', '&:hover': { bgcolor: '#4F46E5' }, textTransform: 'none', borderRadius: 2 }}
+                  sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' }, textTransform: 'none', borderRadius: 2 }}
                 >
                   Manage Students
                 </Button>
@@ -158,9 +158,9 @@ const Dashboard: React.FC = () => {
                 onClick={() => navigate('/inventory')}
                 startIcon={<FileCheck size={18} />}
                 sx={{
-                  color: '#F8FAFC',
+                  color: '#FDFBF7',
                   borderColor: 'rgba(255,255,255,0.1)',
-                  '&:hover': { borderColor: 'rgba(255,255,255,0.2)', bgcolor: 'rgba(255,255,255,0.02)' },
+                  '&:hover': { borderColor: 'rgba(212, 175, 55, 0.35)', bgcolor: 'rgba(255,255,255,0.02)' },
                   textTransform: 'none',
                   borderRadius: 2,
                 }}
@@ -172,7 +172,7 @@ const Dashboard: React.FC = () => {
           <Grid item xs={12} sm={4} sx={{ display: { xs: 'none', sm: 'flex' }, justifyContent: 'center' }}>
             <Avatar
               src={user?.profilePicture}
-              sx={{ width: 100, height: 100, bgcolor: '#6366F1', fontSize: 36, border: '4px solid rgba(99,102,241,0.2)' }}
+              sx={{ width: 100, height: 100, bgcolor: '#EA580C', fontSize: 36, border: '4px solid rgba(234,88,12,0.25)' }}
             >
               {user?.name?.charAt(0).toUpperCase()}
             </Avatar>
@@ -190,8 +190,8 @@ const Dashboard: React.FC = () => {
               sx={{
                 p: 3,
                 cursor: 'pointer',
-                bgcolor: 'rgba(17, 24, 39, 0.6)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
+                bgcolor: 'rgba(11, 18, 32, 0.7)',
+                border: '1px solid rgba(255, 255, 255, 0.06)',
                 borderRadius: 4,
               }}
             >
@@ -200,8 +200,8 @@ const Dashboard: React.FC = () => {
                   sx={{
                     p: 1.5,
                     borderRadius: 3,
-                    bgcolor: `rgba(${card.color === '#6366F1' ? '99, 102, 241' : card.color === '#06B6D4' ? '6, 182, 212' : card.color === '#10B981' ? '16, 185, 129' : '245, 158, 11'}, 0.1)`,
-                    border: `1px solid rgba(${card.color === '#6366F1' ? '99, 102, 241' : card.color === '#06B6D4' ? '6, 182, 212' : card.color === '#10B981' ? '16, 185, 129' : '245, 158, 11'}, 0.2)`,
+                    bgcolor: `${card.color}15`,
+                    border: `1px solid ${card.color}35`,
                   }}
                 >
                   {card.icon}
@@ -210,7 +210,7 @@ const Dashboard: React.FC = () => {
               <Typography variant="body2" sx={{ color: '#94A3B8' }} gutterBottom>
                 {card.title}
               </Typography>
-              <Typography variant="h3" fontWeight="800" sx={{ color: '#F8FAFC', fontFamily: 'Plus Jakarta Sans' }}>
+              <Typography variant="h3" fontWeight="800" sx={{ color: '#FDFBF7', fontFamily: 'Plus Jakarta Sans' }}>
                 {card.value}
               </Typography>
             </Card>
@@ -223,23 +223,23 @@ const Dashboard: React.FC = () => {
         className="glass-panel"
         sx={{
           p: 3,
-          bgcolor: 'rgba(17, 24, 39, 0.65)',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
+          bgcolor: 'rgba(11, 18, 32, 0.75)',
+          border: '1px solid rgba(212, 175, 55, 0.12)',
           borderRadius: 4,
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2.5 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', p: 1, borderRadius: 2, bgcolor: 'rgba(6, 182, 212, 0.1)', color: '#06B6D4' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', p: 1, borderRadius: 2, bgcolor: 'rgba(13, 148, 136, 0.1)', color: '#0D9488' }}>
             <Activity size={20} />
           </Box>
-          <Typography variant="h6" fontWeight="bold" sx={{ color: '#F8FAFC', fontFamily: 'Plus Jakarta Sans' }}>
+          <Typography variant="h6" fontWeight="bold" sx={{ color: '#FDFBF7', fontFamily: 'Plus Jakarta Sans' }}>
             Live School Event Log (Real-Time Synchronized)
           </Typography>
         </Box>
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', mb: 2 }} />
         
         {liveEvents.length === 0 ? (
-          <Box sx={{ py: 6, textCenter: true, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ py: 6, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5 }}>
             <Zap size={36} color="#475569" />
             <Typography variant="body2" sx={{ color: '#64748B' }}>
               Waiting for live updates... Perform actions on student records or inventory to see socket alerts here.
@@ -270,16 +270,16 @@ const Dashboard: React.FC = () => {
                       borderRadius: 1.5,
                       bgcolor:
                         evt.type === 'Student'
-                          ? 'rgba(99, 102, 241, 0.15)'
+                          ? 'rgba(234, 88, 12, 0.15)'
                           : evt.type === 'Inventory'
-                          ? 'rgba(245, 158, 11, 0.15)'
-                          : 'rgba(6, 182, 212, 0.15)',
+                          ? 'rgba(225, 29, 72, 0.15)'
+                          : 'rgba(13, 148, 136, 0.15)',
                       color:
                         evt.type === 'Student'
-                          ? '#818CF8'
+                          ? '#EA580C'
                           : evt.type === 'Inventory'
-                          ? '#FBBF24'
-                          : '#22D3EE',
+                          ? '#E11D48'
+                          : '#0D9488',
                     }}
                   >
                     {evt.type}

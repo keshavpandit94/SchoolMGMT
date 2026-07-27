@@ -14,21 +14,13 @@ import {
   DialogActions,
   CircularProgress,
   Alert,
-  IconButton,
   InputAdornment,
 } from '@mui/material';
 import {
   Search,
   ScanFace,
   CheckCircle2,
-  Lock,
-  Camera,
-  RefreshCw,
-  Sparkles,
   Clock,
-  ShieldCheck,
-  UserCheck,
-  X,
 } from 'lucide-react';
 import axios from 'axios';
 
@@ -60,7 +52,6 @@ const KioskAttendance: React.FC = () => {
 
   // Face Scan Modal States
   const [faceModalOpen, setFaceModalOpen] = useState(false);
-  const [scanning, setScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [scanSuccess, setScanSuccess] = useState(false);
   const [successInfo, setSuccessInfo] = useState<{ name: string; status: string; time: string } | null>(null);
@@ -119,7 +110,6 @@ const KioskAttendance: React.FC = () => {
   // Start Camera and Face Scan Simulation
   const startFaceScanModal = async () => {
     setFaceModalOpen(true);
-    setScanning(true);
     setScanProgress(0);
     setScanSuccess(false);
 

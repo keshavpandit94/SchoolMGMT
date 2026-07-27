@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Button, Typography, Grid, Paper } from '@mui/material';
+import { Box, Button, Grid } from '@mui/material';
 import { Delete, Check, RotateCcw } from 'lucide-react';
 import { playAudioFeedback } from '../services/faceApiService';
 

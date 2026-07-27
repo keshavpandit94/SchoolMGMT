@@ -1,13 +1,55 @@
-import React from 'react';
-import { Box, Container, Typography, Button, Card, Chip, Avatar } from '@mui/material';
-import { Sparkles, Calendar, Trophy, Quote, ArrowRight } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Box, Container, Typography, Button, Card, Chip, Avatar, Tooltip, Fade } from '@mui/material';
+import { Sparkles, Calendar, Trophy, Quote, Bell, PhoneCall, MessageCircle, Mail } from 'lucide-react';
 import PrincipalMessage from '../components/PrincipalMessage';
+import axios from 'axios';
 
 interface HomePageProps {
   onPageChange: (page: string) => void;
 }
 
+const defaultNotices = [
+  { _id: '1', title: 'Admissions Open for Term 2026-27', content: 'Online registrations seek direct enrollment pathways for standard terms. Limited seats in Science stream.', category: 'Admission', date: new Date().toISOString() },
+  { _id: '2', title: 'National Smart Robotics Expo 2026', content: 'Exhibits AI automation and student robot guides in the main sports court. Free entry for families.', category: 'Academic', date: new Date().toISOString() },
+  { _id: '3', title: 'Independence Observance Holiday', content: 'KCPPS campus will observe a closed academic holiday on August 15th.', category: 'Holiday', date: new Date().toISOString() }
+];
+
+const defaultEvents = [
+  { _id: '1', title: 'National Smart Robotics Expo 2026', desc: 'Student projects from grades 8 to 12 showcase AI-based automated solutions.', date: 'Aug 14', type: 'Technology Event' },
+  { _id: '2', title: 'Inter-School Debate Championship', desc: 'Hosted at KCPPS main auditorium with participation from over 35 city schools.', date: 'Sep 02', type: 'Literary Club' },
+  { _id: '3', title: 'Annual Athletic Carnival', desc: 'Track & field championships, gymnastic arrays, and professional swimming finals.', date: 'Sep 25', type: 'Sports Academy' }
+];
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
 const HomePage: React.FC<HomePageProps> = ({ onPageChange }) => {
+  const [notices, setNotices] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
+  const [contactOpen, setContactOpen] = useState(false);
+
+  useEffect(() => {
+    // Fetch notices
+    axios.get(`${API_URL}/api/notices`)
+      .then(res => {
+        if (res.data.success && res.data.notices.length > 0) {
+          setNotices(res.data.notices);
+        } else {
+          setNotices(defaultNotices);
+        }
+      })
+      .catch(() => setNotices(defaultNotices));
+
+    // Fetch events
+    axios.get(`${API_URL}/api/events`)
+      .then(res => {
+        if (res.data.success && res.data.events.length > 0) {
+          setEvents(res.data.events);
+        } else {
+          setEvents(defaultEvents);
+        }
+      })
+      .catch(() => setEvents(defaultEvents));
+  }, []);
   return (
     <Box className="animate-fade-in-up">
       {/* HERO SECTION */}
@@ -168,80 +210,123 @@ const HomePage: React.FC<HomePageProps> = ({ onPageChange }) => {
         </Box>
       </Container>
 
-      {/* RECENT EVENTS & NEWS CALENDAR */}
+      {/* RECENT EVENTS & NOTICE BOARD */}
       <Box sx={{ py: 10, bgcolor: 'rgba(15, 23, 42, 0.3)', borderY: '1px solid rgba(255,255,255,0.04)' }}>
         <Container maxWidth="lg">
-          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1.2fr 1.8fr' }, gap: 5, alignItems: 'center' }}>
-            <Box>
-              <Box
-                sx={{
-                  p: 1.5,
-                  borderRadius: 2.5,
-                  bgcolor: 'rgba(14, 165, 233, 0.08)',
-                  color: '#38BDF8',
-                  display: 'inline-flex',
-                  mb: 2.5,
-                }}
-              >
-                <Trophy size={20} />
-              </Box>
-              <Typography variant="h3" sx={{ fontFamily: 'Outfit', fontWeight: '900', mb: 2 }}>
-                Campus Pulse & Updates
-              </Typography>
-              <Typography variant="body2" sx={{ color: '#94A3B8', mb: 4, lineHeight: 1.7 }}>
-                Stay up to date with KCPPS events, upcoming science exhibitions, and annual athletic meets held across our high-performance campus facilities.
-              </Typography>
-              <Button
-                onClick={() => onPageChange('contact')}
-                variant="text"
-                sx={{ color: '#38BDF8', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: 1, textTransform: 'none' }}
-              >
-                Join Event Newsletter <ArrowRight size={16} />
-              </Button>
+          <Box sx={{ textAlign: 'center', mb: 7 }}>
+            <Box
+              sx={{
+                p: 1.5,
+                borderRadius: 2.5,
+                bgcolor: 'rgba(14, 165, 233, 0.08)',
+                color: '#38BDF8',
+                display: 'inline-flex',
+                mb: 2,
+              }}
+            >
+              <Trophy size={20} />
             </Box>
+            <Typography variant="h3" sx={{ fontFamily: 'Outfit', fontWeight: '900', mb: 1.5 }}>
+              Campus Bulletins & Scheduled Events
+            </Typography>
+            <Typography variant="body1" sx={{ color: '#94A3B8', maxW: 600, mx: 'auto' }}>
+              Real-time notice board and upcoming calendar schedules for daily student & parent operations.
+            </Typography>
+          </Box>
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-              {[
-                { date: 'Aug 14', title: 'National Smart Robotics Expo 2026', type: 'Technology Event', desc: 'Student projects from grades 8 to 12 showcase AI-based automated solutions.' },
-                { date: 'Sep 02', title: 'Inter-School Debate Championship', type: 'Literary Club', desc: 'Hosted at KCPPS main auditorium with participation from over 35 city schools.' },
-                { date: 'Sep 25', title: 'Annual Athletic Carnival', type: 'Sports Academy', desc: 'Track & field championships, gymnastic arrays, and professional swimming finals.' },
-              ].map((ev, idx) => (
-                <Card
-                  key={idx}
-                  className="glass-panel"
-                  sx={{
-                    p: 3,
-                    display: 'flex',
-                    gap: 3,
-                    alignItems: 'center',
-                    background: 'rgba(18, 26, 38, 0.6)',
-                  }}
-                >
-                  <Box
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 5 }}>
+            {/* Left: Events Calendar */}
+            <Box>
+              <Typography variant="h5" sx={{ fontFamily: 'Outfit', fontWeight: 'bold', mb: 3, display: 'flex', alignItems: 'center', gap: 1.5, color: '#38BDF8' }}>
+                <Calendar size={20} /> Upcoming Campus Events
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {events.slice(0, 3).map((ev, idx) => (
+                  <Card
+                    key={ev._id || idx}
+                    className="glass-panel"
                     sx={{
-                      p: 2,
-                      borderRadius: 3,
-                      bgcolor: 'rgba(14, 165, 233, 0.08)',
-                      textAlign: 'center',
-                      minWidth: 70,
+                      p: 3,
+                      display: 'flex',
+                      gap: 3,
+                      alignItems: 'center',
+                      background: 'rgba(18, 26, 38, 0.6)',
+                      border: '1px solid rgba(255,255,255,0.04)'
                     }}
                   >
-                    <Calendar size={18} color="#38BDF8" style={{ marginBottom: 4 }} />
-                    <Typography variant="subtitle2" sx={{ color: '#38BDF8', fontWeight: 'bold', lineHeight: 1 }}>
-                      {ev.date}
-                    </Typography>
-                  </Box>
-                  <Box>
-                    <Chip label={ev.type} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.03)', color: '#94A3B8', mb: 1, fontWeight: 'bold' }} />
-                    <Typography variant="subtitle1" sx={{ color: '#F8FAFC', fontWeight: 'bold', mb: 0.5 }}>
-                      {ev.title}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: '#64748B' }}>
-                      {ev.desc}
-                    </Typography>
-                  </Box>
-                </Card>
-              ))}
+                    <Box
+                      sx={{
+                        p: 2,
+                        borderRadius: 3,
+                        bgcolor: 'rgba(14, 165, 233, 0.08)',
+                        textAlign: 'center',
+                        minWidth: 70,
+                      }}
+                    >
+                      <Calendar size={18} color="#38BDF8" style={{ marginBottom: 4 }} />
+                      <Typography variant="subtitle2" sx={{ color: '#38BDF8', fontWeight: 'bold', lineHeight: 1 }}>
+                        {ev.date}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Chip label={ev.type} size="small" sx={{ bgcolor: 'rgba(255,255,255,0.03)', color: '#94A3B8', mb: 1, fontWeight: 'bold' }} />
+                      <Typography variant="subtitle1" sx={{ color: '#F8FAFC', fontWeight: 'bold', mb: 0.5 }}>
+                        {ev.title}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: '#64748B' }}>
+                        {ev.desc}
+                      </Typography>
+                    </Box>
+                  </Card>
+                ))}
+              </Box>
+            </Box>
+
+            {/* Right: Notices & Announcements Board */}
+            <Box>
+              <Typography variant="h5" sx={{ fontFamily: 'Outfit', fontWeight: 'bold', mb: 3, display: 'flex', alignItems: 'center', gap: 1.5, color: '#EA580C' }}>
+                <Bell size={20} /> Official Announcements
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                {notices.slice(0, 3).map((n, idx) => (
+                  <Card
+                    key={n._id || idx}
+                    className="glass-panel"
+                    sx={{
+                      p: 3,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 1.5,
+                      background: 'rgba(18, 26, 38, 0.6)',
+                      border: '1px solid rgba(255,255,255,0.04)'
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Chip 
+                        label={n.category} 
+                        size="small" 
+                        sx={{ 
+                          bgcolor: n.category === 'Holiday' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(234, 88, 12, 0.1)', 
+                          color: n.category === 'Holiday' ? '#FCA5A5' : '#EA580C',
+                          fontWeight: 'bold',
+                          border: '1px solid rgba(255,255,255,0.03)'
+                        }} 
+                      />
+                      <Typography variant="caption" sx={{ color: '#64748B' }}>
+                        {new Date(n.date).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ color: '#F8FAFC', fontWeight: 'bold', mb: 0.5 }}>
+                        {n.title}
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: '#94A3B8', lineHeight: 1.5 }}>
+                        {n.content}
+                      </Typography>
+                    </Box>
+                  </Card>
+                ))}
+              </Box>
             </Box>
           </Box>
         </Container>
@@ -297,6 +382,82 @@ const HomePage: React.FC<HomePageProps> = ({ onPageChange }) => {
           ))}
         </Box>
       </Container>
+
+      {/* FLOATING ACTION CONTACT WIDGET */}
+      <Box sx={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1000 }}>
+        {contactOpen && (
+          <Fade in={contactOpen}>
+            <Card
+              className="glass-panel"
+              sx={{
+                p: 3,
+                mb: 2,
+                width: 280,
+                bgcolor: 'rgba(15, 23, 42, 0.95)',
+                border: '1px solid rgba(14, 165, 233, 0.3)',
+                boxShadow: '0 10px 30px rgba(0,0,0,0.6)',
+                borderRadius: 4,
+              }}
+            >
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 2, color: '#38BDF8' }}>
+                Quick Admissions Inquiry
+              </Typography>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<PhoneCall size={16} />}
+                  href="tel:+915222468100"
+                  sx={{ justifyContent: 'flex-start', color: '#FFF', borderColor: 'rgba(255,255,255,0.08)', textTransform: 'none' }}
+                >
+                  Call +91 522 246 8100
+                </Button>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<MessageCircle size={16} />}
+                  href="https://wa.me/919876543210"
+                  target="_blank"
+                  sx={{ justifyContent: 'flex-start', color: '#34D399', borderColor: 'rgba(52, 211, 153, 0.2)', textTransform: 'none' }}
+                >
+                  WhatsApp Admissions
+                </Button>
+                <Button
+                  variant="contained"
+                  size="small"
+                  startIcon={<Mail size={16} />}
+                  onClick={() => {
+                    onPageChange('admissions');
+                    setContactOpen(false);
+                  }}
+                  className="primary-gradient-btn"
+                  sx={{ textTransform: 'none' }}
+                >
+                  Open Registration Portal
+                </Button>
+              </Box>
+            </Card>
+          </Fade>
+        )}
+        <Tooltip title="Admission Helpdesk" placement="left">
+          <Button
+            onClick={() => setContactOpen(!contactOpen)}
+            variant="contained"
+            sx={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              minWidth: 0,
+              p: 0,
+              bgcolor: contactOpen ? '#EF4444' : '#0EA5E9',
+              boxShadow: '0 8px 24px rgba(14, 165, 233, 0.4)',
+              '&:hover': { bgcolor: contactOpen ? '#DC2626' : '#0284C7' },
+            }}
+          >
+            {contactOpen ? '✕' : '💬'}
+          </Button>
+        </Tooltip>
+      </Box>
     </Box>
   );
 };

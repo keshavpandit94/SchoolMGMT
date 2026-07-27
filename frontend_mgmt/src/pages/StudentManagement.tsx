@@ -29,7 +29,7 @@ import {
   Avatar,
   Menu,
 } from '@mui/material';
-import { Plus, Search, Edit2, Trash2, Filter, CheckCircle2, UserCheck, ShieldAlert } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Filter, CheckCircle2 } from 'lucide-react';
 
 interface Student {
   _id: string;
@@ -436,7 +436,7 @@ const StudentManagement: React.FC = () => {
                         {student.name.charAt(0)}
                       </Avatar>
                     </TableCell>
-                    <TableCell fontWeight="semibold">{student.rollNumber}</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>{student.rollNumber}</TableCell>
                     <TableCell>{student.name}</TableCell>
                     <TableCell>{student.class} ({student.section})</TableCell>
                     <TableCell>{renderStatusChip(student.status)}</TableCell>

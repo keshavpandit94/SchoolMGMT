@@ -4,6 +4,8 @@ import User from '../models/User.js';
 import Teacher from '../models/Teacher.js';
 import Student from '../models/Student.js';
 import Inventory from '../models/Inventory.js';
+import Notice from '../models/Notice.js';
+import Event from '../models/Event.js';
 
 dotenv.config();
 
@@ -92,6 +94,55 @@ const seedDB = async () => {
         ],
       });
       console.log('✅ Sample Inventory Item created.');
+    }
+
+    // 5. Seed Notices
+    const noticesCount = await Notice.countDocuments();
+    if (noticesCount === 0) {
+      await Notice.insertMany([
+        {
+          title: 'Admissions Open for Term 2026-27',
+          content: 'Registration is now open for Grades 1 to 12. Submit your forms online through the admission portal.',
+          category: 'Admission',
+        },
+        {
+          title: 'Upcoming Science & Robotics Exhibition',
+          content: 'The National Smart Robotics Expo will be held on August 14th in the main auditorium. Everyone is welcome.',
+          category: 'Academic',
+        },
+        {
+          title: 'Independence Day Holiday Notice',
+          content: 'The school will remain closed on August 15th, 2026 in observance of Independence Day.',
+          category: 'Holiday',
+        }
+      ]);
+      console.log('✅ Initial notices seeded.');
+    }
+
+    // 6. Seed Events
+    const eventsCount = await Event.countDocuments();
+    if (eventsCount === 0) {
+      await Event.insertMany([
+        {
+          title: 'National Smart Robotics Expo 2026',
+          desc: 'Student projects from grades 8 to 12 showcase AI-based automated solutions.',
+          date: 'Aug 14',
+          type: 'Technology Event',
+        },
+        {
+          title: 'Inter-School Debate Championship',
+          desc: 'Hosted at KCPPS main auditorium with participation from over 35 city schools.',
+          date: 'Sep 02',
+          type: 'Literary Club',
+        },
+        {
+          title: 'Annual Athletic Carnival',
+          desc: 'Track & field championships, gymnastic arrays, and professional swimming finals.',
+          date: 'Sep 25',
+          type: 'Sports Academy',
+        }
+      ]);
+      console.log('✅ Initial events seeded.');
     }
 
     console.log('\n🎉 Database seeding finished successfully!');
