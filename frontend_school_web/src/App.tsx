@@ -1,91 +1,63 @@
-import React, { useState } from 'react';
-import { Box, Button } from '@mui/material';
+import React from 'react';
+import { Box } from '@mui/material';
+import { ThemeProvider } from '@mui/material/styles';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import theme from './theme';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
-import HomePage from './pages/HomePage';
-import AboutPage from './pages/AboutPage';
-import AcademicsPage from './pages/AcademicsPage';
-import FacilitiesPage from './pages/FacilitiesPage';
-import AdmissionPage from './pages/AdmissionPage';
-import ContactPage from './pages/ContactPage';
+import { LoadingState } from './components/common/StatusStates';
 import './App.css';
 
+// Lazy load page routes to improve initial load performance
+const HomePage = React.lazy(() => import('./pages/HomePage'));
+const AboutPage = React.lazy(() => import('./pages/AboutPage'));
+const AcademicsPage = React.lazy(() => import('./pages/AcademicsPage'));
+const FacilitiesPage = React.lazy(() => import('./pages/FacilitiesPage'));
+const AdmissionPage = React.lazy(() => import('./pages/AdmissionPage'));
+const ContactPage = React.lazy(() => import('./pages/ContactPage'));
+
 const App: React.FC = () => {
-  const [currentPage, setCurrentPage] = useState<string>('home');
-
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'home':
-        return <HomePage onPageChange={setCurrentPage} />;
-      case 'about':
-        return <AboutPage />;
-      case 'academics':
-        return <AcademicsPage />;
-      case 'facilities':
-        return <FacilitiesPage />;
-      case 'admissions':
-        return <AdmissionPage />;
-      case 'contact':
-        return <ContactPage />;
-      default:
-        return <HomePage onPageChange={setCurrentPage} />;
-    }
-  };
-
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#090D16', color: '#F8FAFC', display: 'flex', flexDirection: 'column' }}>
-      {/* Background Accent overlay */}
-      <div className="hero-bg-overlay" />
+    <ThemeProvider theme={theme}>
+      <Router>
+        {/* Keyboard accessibility Skip link */}
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
 
-      {/* Top Admissions Banner strip */}
-      <Box 
-        sx={{ 
-          width: '100%', 
-          bgcolor: 'rgba(14, 165, 233, 0.12)', 
-          borderBottom: '1px solid rgba(14, 165, 233, 0.2)',
-          py: 1, 
-          textAlign: 'center', 
-          color: '#38BDF8', 
-          fontSize: 13, 
-          fontWeight: 'bold', 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          flexDirection: { xs: 'column', sm: 'row' },
-          gap: 1.5,
-          zIndex: 1001
-        }}
-      >
-        <span>🎓 Admissions Open for Term 2026-27! Grades I to XII Seeking Admission</span>
-        <Button 
-          onClick={() => setCurrentPage('admissions')} 
-          size="small" 
-          variant="contained" 
-          className="primary-gradient-btn"
-          sx={{ 
-            fontWeight: 'bold', 
-            textTransform: 'none', 
-            px: 2.5, 
-            py: 0.4, 
-            borderRadius: 2,
-            boxShadow: '0 4px 10px rgba(14, 165, 233, 0.2)'
-          }}
-        >
-          Apply Now
-        </Button>
-      </Box>
+        <Box sx={{ minHeight: '100vh', bgcolor: '#FFFCF5', color: '#1F2937', display: 'flex', flexDirection: 'column' }}>
+          
+          {/* Main Sticky/Fixed Header (Announcement Bar + Navbar) */}
+          <Navbar />
 
-      {/* Navigation Header */}
-      <Navbar currentPage={currentPage} onPageChange={setCurrentPage} />
+          {/* Main Page Area - Padded to offset the fixed header height */}
+          <Box 
+            component="main" 
+            id="main-content" 
+            sx={{ 
+              flexGrow: 1, 
+              pt: { xs: '106px', sm: '114px' } 
+            }}
+          >
+            <React.Suspense fallback={<LoadingState message="Loading page content..." />}>
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/about" element={<AboutPage />} />
+                <Route path="/academics" element={<AcademicsPage />} />
+                <Route path="/facilities" element={<FacilitiesPage />} />
+                <Route path="/admissions" element={<AdmissionPage />} />
+                <Route path="/contact" element={<ContactPage />} />
+                {/* Fallback redirect to home */}
+                <Route path="*" element={<HomePage />} />
+              </Routes>
+            </React.Suspense>
+          </Box>
 
-      {/* Main Page Area */}
-      <Box component="main" sx={{ flexGrow: 1, pt: 4 }}>
-        {renderPage()}
-      </Box>
-
-      {/* Footer */}
-      <Footer onPageChange={setCurrentPage} />
-    </Box>
+          {/* Footer */}
+          <Footer />
+        </Box>
+      </Router>
+    </ThemeProvider>
   );
 };
 

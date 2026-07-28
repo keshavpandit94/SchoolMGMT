@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axiosInstance from '../services/axiosInstance';
+import { useSocket } from '../hooks/useSocket';
 import AttendanceManagement from './AttendanceManagement';
 import KioskAttendance from './KioskAttendance';
 import {
@@ -57,13 +58,14 @@ const StudentClassAttendance: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [attendanceStatusFilter, setAttendanceStatusFilter] = useState('All');
 
   const fetchClassStudents = async () => {
     setLoading(true);
     setError(null);
     try {
       const response = await axiosInstance.get('/api/students', {
-        params: { className, section, limit: 100 },
+        params: { className, section, status: 'Active', limit: 100 },
       });
 
       if (response.data.success) {
@@ -95,6 +97,21 @@ const StudentClassAttendance: React.FC = () => {
   useEffect(() => {
     fetchClassStudents();
   }, [className, section, date]);
+
+  // Real-time refresh when a student is approved or status changes
+  const socketHandlers = React.useMemo(() => ({
+    student_updated: () => {
+      fetchClassStudents();
+    },
+    student_status_changed: () => {
+      fetchClassStudents();
+    },
+    admission_approved: () => {
+      fetchClassStudents();
+    }
+  }), [className, section, date]);
+
+  useSocket(socketHandlers);
 
   const handleStatusToggle = (id: string, newStatus: StudentAttendanceRow['status']) => {
     setStudents((prev) =>
@@ -182,7 +199,22 @@ const StudentClassAttendance: React.FC = () => {
               ))}
             </TextField>
           </Grid>
-          <Grid item xs={12} sm={4} sx={{ textAlign: { sm: 'right' } }}>
+          <Grid item xs={12} sm={2}>
+            <TextField
+              select
+              fullWidth
+              size="small"
+              label="Attd. Status"
+              value={attendanceStatusFilter}
+              onChange={(e) => setAttendanceStatusFilter(e.target.value)}
+              sx={{ '& .MuiSelect-select': { color: '#FFF' }, label: { color: '#94A3B8' }, fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
+            >
+              {['All', 'Present', 'Absent', 'Late', 'Excused'].map((f) => (
+                <MenuItem key={f} value={f}>{f}</MenuItem>
+              ))}
+            </TextField>
+          </Grid>
+          <Grid item xs={12} sm={2} sx={{ textAlign: { sm: 'right' } }}>
             {canModify && (
               <Box sx={{ display: 'inline-flex', gap: 1 }}>
                 <Button
@@ -233,7 +265,7 @@ const StudentClassAttendance: React.FC = () => {
             disabled={saving || loading}
             onClick={handleSaveStudentAttendance}
             startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <Save size={18} />}
-            sx={{ bgcolor: '#6366F1', '&:hover': { bgcolor: '#4F46E5' }, textTransform: 'none', borderRadius: 2 }}
+            sx={{ bgcolor: '#E8751A', '&:hover': { bgcolor: '#C95E10' }, textTransform: 'none', borderRadius: 2 }}
           >
             {saving ? 'Saving...' : 'Save Class Attendance'}
           </Button>
@@ -262,12 +294,17 @@ const StudentClassAttendance: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {students.map((st) => (
+              {students.filter((st) => {
+                if (attendanceStatusFilter && attendanceStatusFilter !== 'All') {
+                  return st.status === attendanceStatusFilter;
+                }
+                return true;
+              }).map((st) => (
                 <TableRow key={st._id}>
                   <TableCell><Typography variant="body2" fontWeight="bold" sx={{ color: '#F8FAFC' }}>{st.rollNumber}</Typography></TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                      <Avatar src={st.photoUrl} sx={{ width: 34, height: 34, bgcolor: '#6366F1' }}>
+                      <Avatar src={st.photoUrl} sx={{ width: 34, height: 34, bgcolor: '#E8751A' }}>
                         {st.name.charAt(0)}
                       </Avatar>
                       <Typography variant="body2" sx={{ color: '#F8FAFC' }}>

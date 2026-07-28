@@ -20,17 +20,18 @@ import KioskAttendance from './pages/KioskAttendance';
 import KioskScreen from './pages/KioskScreen';
 import StaffRegistrationScreen from './pages/StaffRegistrationScreen';
 import NoticeEventManagement from './pages/NoticeEventManagement';
+import AdmissionsReview from './pages/AdmissionsReview';
 
 // Custom Indian Luxury Theme
 const theme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
-      main: '#EA580C', // Saffron
+      main: '#E8751A', // Saffron
       contrastText: '#FDFBF7',
     },
     secondary: {
-      main: '#0D9488', // Peacock Teal
+      main: '#0F766E', // Peacock Teal
       contrastText: '#FDFBF7',
     },
     background: {
@@ -132,6 +133,17 @@ const App: React.FC = () => {
                     <ProtectedRoute>
                       <DashboardLayout>
                         <StudentManagement />
+                      </DashboardLayout>
+                    </ProtectedRoute>
+                  }
+                />
+
+                <Route
+                  path="/admissions-applications"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout>
+                        <AdmissionsReview />
                       </DashboardLayout>
                     </ProtectedRoute>
                   }

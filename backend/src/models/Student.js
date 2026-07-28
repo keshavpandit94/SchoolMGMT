@@ -76,7 +76,16 @@ const StudentSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['Pending Approval', 'Active', 'On Leave', 'Suspended', 'Graduated'],
+      enum: [
+        'Pending Approval',
+        'Information Requested',
+        'Approved',
+        'Rejected',
+        'Active',
+        'On Leave',
+        'Suspended',
+        'Graduated'
+      ],
       default: 'Active',
     },
     approvedBy: {

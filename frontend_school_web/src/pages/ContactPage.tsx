@@ -1,158 +1,267 @@
 import React, { useState } from 'react';
-import { Box, Container, Typography, Card, TextField, Button, Alert } from '@mui/material';
-import { MapPin, Phone, Mail, Send } from 'lucide-react';
+import { Box, Container, Typography, Card, TextField, Button, Alert, CircularProgress } from '@mui/material';
+import { MapPin, Phone, Mail, Clock, Send, MessageCircle } from 'lucide-react';
+import axiosInstance from '../services/axiosInstance';
+import SEO from '../components/common/SEO';
+import SectionHeader from '../components/common/SectionHeader';
+
+const textFieldStyle = {
+  input: { color: '#1F2937' },
+  textarea: { color: '#1F2937' },
+  label: { color: '#5B6573' },
+  '& .MuiInputLabel-root': { color: '#5B6573' },
+  '& .MuiOutlinedInput-root': {
+    '& fieldset': { borderColor: '#D1D5DB' },
+    '&:hover fieldset': { borderColor: '#0F766E' },
+    '&.Mui-focused fieldset': { borderColor: '#E8751A' }
+  }
+};
 
 const ContactPage: React.FC = () => {
-  const [contactName, setContactName] = useState('');
-  const [contactEmail, setContactEmail] = useState('');
-  const [contactMsg, setContactMsg] = useState('');
-  const [contactSuccess, setContactSuccess] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const handleContactSubmit = (e: React.FormEvent) => {
+  const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!contactName || !contactEmail || !contactMsg) return;
-    setContactSuccess(true);
-    setContactName('');
-    setContactEmail('');
-    setContactMsg('');
-    setTimeout(() => setContactSuccess(false), 5000);
+    setSuccessMsg(null);
+    setErrorMsg(null);
+
+    if (!name || !email || !message) {
+      setErrorMsg('Please fill in all fields.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await axiosInstance.post('/api/contact', {
+        name,
+        email,
+        message
+      });
+
+      if (res.data.success) {
+        setSuccessMsg(res.data.message);
+        setName('');
+        setEmail('');
+        setMessage('');
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorMsg(err.response?.data?.message || 'Failed to send message. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <Container maxWidth="lg" sx={{ py: 8 }} className="animate-fade-in-up">
-      {/* HEADER SECTION */}
-      <Box sx={{ textAlign: 'center', mb: 8 }}>
-        <Typography variant="h3" sx={{ fontFamily: 'Outfit', mb: 1.5, fontWeight: '900' }}>
-          Contact Registrar Office
-        </Typography>
-        <Typography variant="body1" sx={{ color: '#38BDF8', fontWeight: '800', letterSpacing: 0.5 }}>
-          Contact campus administrations for physical visits and admissions guides.
-        </Typography>
-      </Box>
+    <Box sx={{ bgcolor: '#FFFCF5', minHeight: '100vh', py: 6 }}>
+      {/* SEO Tags */}
+      <SEO 
+        title="Contact Registrar Office | Campus Address & Directions"
+        description="Find campus directions, contact details, phone hotlines, WhatsApp shortcuts, and office timings for the KCP Public School Lucknow admissions desk."
+      />
 
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1.3fr' }, gap: 6 }}>
-        {/* Contact Info Cards */}
-        <Box>
-          <Typography variant="h5" sx={{ fontFamily: 'Outfit', mb: 3, fontWeight: 'bold' }}>
-            Campus Coordinates
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#94A3B8', mb: 5, lineHeight: 1.7 }}>
-            Our admin desks are open Monday to Saturday from 08:30 AM to 03:30 PM. Drop by or dial school helpline channels below.
-          </Typography>
+      <Container maxWidth="lg" className="animate-fade-in-up">
+        {/* HEADER SECTION */}
+        <SectionHeader 
+          preHeader="Campus Coordinates" 
+          title="Contact Registrar & Administration"
+          subtitle="Our administrative desk is open Monday to Saturday for admissions inquiries and campus tours."
+        />
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'center' }}>
-              <Box sx={{ p: 1.8, borderRadius: 3, bgcolor: 'rgba(14, 165, 233, 0.08)', color: '#38BDF8', display: 'flex' }}>
-                <MapPin size={22} />
-              </Box>
-              <Box>
-                <Typography variant="subtitle2" sx={{ color: '#F8FAFC', fontWeight: 'bold' }}>
-                  Our Location Campus
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                  Sector 2, Gomti Nagar, Lucknow, Uttar Pradesh, India 226010
-                </Typography>
-              </Box>
-            </Box>
-
-            <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'center' }}>
-              <Box sx={{ p: 1.8, borderRadius: 3, bgcolor: 'rgba(14, 165, 233, 0.08)', color: '#38BDF8', display: 'flex' }}>
-                <Phone size={22} />
-              </Box>
-              <Box>
-                <Typography variant="subtitle2" sx={{ color: '#F8FAFC', fontWeight: 'bold' }}>
-                  Phone Helpdesk Helpline
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                  +91 (522) 2689-7389 • +91 98991 23456
-                </Typography>
-              </Box>
-            </Box>
-
-            <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'center' }}>
-              <Box sx={{ p: 1.8, borderRadius: 3, bgcolor: 'rgba(14, 165, 233, 0.08)', color: '#38BDF8', display: 'flex' }}>
-                <Mail size={22} />
-              </Box>
-              <Box>
-                <Typography variant="subtitle2" sx={{ color: '#F8FAFC', fontWeight: 'bold' }}>
-                  Email Desk Address
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#94A3B8' }}>
-                  admissions@kcpps.edu.in
-                </Typography>
-              </Box>
-            </Box>
-          </Box>
-        </Box>
-
-        {/* Direct Query Card */}
-        <Box>
-          <Card
-            className="glass-panel"
-            sx={{
-              p: { xs: 4, md: 5 },
-              background: 'rgba(15, 23, 42, 0.45)',
-              border: '1px solid rgba(255, 255, 255, 0.04)',
-              borderRadius: 4,
-            }}
-          >
-            <Typography variant="h6" sx={{ color: '#F8FAFC', mb: 3.5, fontWeight: 'bold' }}>
-              Dispatch an Enquiry Message
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1.2fr' }, gap: 6, mt: 4 }}>
+          
+          {/* Contact Details (Left) */}
+          <Box>
+            <Typography variant="h5" sx={{ color: '#12355B', mb: 2.5, fontWeight: 'bold', fontFamily: '"Inter", sans-serif' }}>
+              Registrar Contact Details
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#5B6573', mb: 4.5, lineHeight: 1.7 }}>
+              Please use our official channels below to check seat availability or schedule parent-teacher meetings.
             </Typography>
 
-            {contactSuccess && (
-              <Alert severity="success" sx={{ mb: 3.5, borderRadius: 3, bgcolor: 'rgba(16, 185, 129, 0.1)', color: '#6EE7B7' }}>
-                Thank you! Your query has been successfully dispatched to our registrar office.
-              </Alert>
-            )}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'flex-start' }}>
+                <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(15, 118, 110, 0.06)', color: '#0F766E', display: 'flex' }}>
+                  <MapPin size={22} />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ color: '#12355B', fontWeight: 800 }}>
+                    Campus Location
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#5B6573', mt: 0.5, lineHeight: 1.5 }}>
+                    KCP Public School, Sector 4, Vikas Nagar, Lucknow, Uttar Pradesh, India - 226022
+                  </Typography>
+                </Box>
+              </Box>
 
-            <form onSubmit={handleContactSubmit}>
-              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 3 }}>
-                <TextField
-                  fullWidth
-                  label="Your Name"
-                  required
-                  value={contactName}
-                  onChange={(e) => setContactName(e.target.value)}
-                  sx={{ input: { color: '#FFF' }, label: { color: '#94A3B8' }, fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
-                />
-                <TextField
-                  fullWidth
-                  label="Email Address"
-                  type="email"
-                  required
-                  value={contactEmail}
-                  onChange={(e) => setContactEmail(e.target.value)}
-                  sx={{ input: { color: '#FFF' }, label: { color: '#94A3B8' }, fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
-                />
-                <Box sx={{ gridColumn: { sm: 'span 2' } }}>
+              <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'flex-start' }}>
+                <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(15, 118, 110, 0.06)', color: '#0F766E', display: 'flex' }}>
+                  <Phone size={22} />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ color: '#12355B', fontWeight: 800 }}>
+                    Phone Helpdesk
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#5B6573', mt: 0.5 }}>
+                    +91 522 246 8100 • +91 98765 43210
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'flex-start' }}>
+                <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(15, 118, 110, 0.06)', color: '#0F766E', display: 'flex' }}>
+                  <Mail size={22} />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ color: '#12355B', fontWeight: 800 }}>
+                    Admissions Email
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#5B6573', mt: 0.5 }}>
+                    admissions@kcppschool.edu.in • registrar@kcppschool.edu.in
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Box sx={{ display: 'flex', gap: 2.5, alignItems: 'flex-start' }}>
+                <Box sx={{ p: 1.5, borderRadius: 2, bgcolor: 'rgba(15, 118, 110, 0.06)', color: '#0F766E', display: 'flex' }}>
+                  <Clock size={22} />
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ color: '#12355B', fontWeight: 800 }}>
+                    Office Work Hours
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#5B6573', mt: 0.5 }}>
+                    Monday to Saturday: 8:00 AM to 3:00 PM
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+
+            {/* WhatsApp Quick Shortcut */}
+            <Box sx={{ mt: 5 }}>
+              <Typography variant="subtitle2" sx={{ color: '#12355B', fontWeight: 800, mb: 1 }}>
+                Instant Support via WhatsApp
+              </Typography>
+              <Button
+                component="a"
+                href="https://wa.me/915222468100?text=I%20am%20enquiring%20about%20admissions"
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="contained"
+                startIcon={<MessageCircle size={18} />}
+                sx={{
+                  bgcolor: '#0F766E',
+                  color: '#FFFFFF',
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 'bold',
+                  px: 4,
+                  py: 1.5,
+                  boxShadow: 'none',
+                  '&:hover': {
+                    bgcolor: '#0D645D',
+                    boxShadow: 'none',
+                  }
+                }}
+              >
+                Chat on WhatsApp
+              </Button>
+            </Box>
+          </Box>
+
+          {/* Direct Query Card (Right) */}
+          <Box>
+            <Card
+              sx={{
+                p: { xs: 4, md: 5 },
+                borderRadius: 3,
+                bgcolor: '#FFFFFF',
+                borderColor: '#E5E7EB',
+                boxShadow: 'none'
+              }}
+            >
+              <Typography variant="h6" sx={{ color: '#12355B', mb: 3.5, fontWeight: 'bold', fontFamily: '"Inter", sans-serif' }}>
+                Send an Enquiry Message
+              </Typography>
+
+              {successMsg && (
+                <Alert severity="success" sx={{ mb: 3.5, borderRadius: 2, bgcolor: 'rgba(15, 118, 110, 0.05)', color: '#0F766E', border: '1px solid rgba(15, 118, 110, 0.2)' }}>
+                  {successMsg}
+                </Alert>
+              )}
+
+              {errorMsg && (
+                <Alert severity="error" sx={{ mb: 3.5, borderRadius: 2, bgcolor: '#FEF2F2', color: '#991B1B', border: '1px solid #FCA5A5' }}>
+                  {errorMsg}
+                </Alert>
+              )}
+
+              <form onSubmit={handleContactSubmit}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <TextField
+                    fullWidth
+                    label="Your Name"
+                    required
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    sx={textFieldStyle}
+                  />
+                  <TextField
+                    fullWidth
+                    label="Email Address"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    sx={textFieldStyle}
+                  />
                   <TextField
                     fullWidth
                     multiline
                     rows={4}
                     label="Describe your query / details..."
                     required
-                    value={contactMsg}
-                    onChange={(e) => setContactMsg(e.target.value)}
-                    sx={{ textarea: { color: '#FFF' }, label: { color: '#94A3B8' }, fieldset: { borderColor: 'rgba(255,255,255,0.1)' } }}
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    sx={textFieldStyle}
                   />
                 </Box>
-              </Box>
 
-              <Button
-                type="submit"
-                variant="contained"
-                startIcon={<Send size={16} />}
-                className="primary-gradient-btn"
-                sx={{ textTransform: 'none', mt: 4, borderRadius: 3, px: 5, py: 1.5, fontWeight: 'bold', fontSize: 15 }}
-              >
-                Send Message
-              </Button>
-            </form>
-          </Card>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={loading}
+                  startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <Send size={16} />}
+                  sx={{
+                    bgcolor: '#E8751A',
+                    color: '#FFFFFF',
+                    '&:hover': {
+                      bgcolor: '#C95E10',
+                    },
+                    textTransform: 'none',
+                    mt: 4,
+                    borderRadius: 2,
+                    px: 5,
+                    py: 1.5,
+                    fontWeight: 'bold',
+                    fontSize: 15
+                  }}
+                >
+                  {loading ? 'Sending...' : 'Send Message'}
+                </Button>
+              </form>
+            </Card>
+          </Box>
+
         </Box>
-      </Box>
-    </Container>
+      </Container>
+    </Box>
   );
 };
 

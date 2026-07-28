@@ -18,6 +18,7 @@ import kioskRoutes from './routes/kioskRoutes.js';
 import settingsRoutes from './routes/settingsRoutes.js';
 import noticeRoutes from './routes/noticeRoutes.js';
 import eventRoutes from './routes/eventRoutes.js';
+import Contact from './models/Contact.js';
 import { errorHandler, notFound } from './middlewares/errorMiddleware.js';
 
 // Load environment variables
@@ -120,6 +121,33 @@ app.use('/api/kiosk', kioskRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/notices', noticeRoutes);
 app.use('/api/events', eventRoutes);
+
+// Public Contact Enquiry Route
+app.post('/api/contact', async (req, res, next) => {
+  try {
+    const { name, email, message } = req.body;
+    if (!name || !email || !message) {
+      return res.status(400).json({ success: false, message: 'Please fill in all fields (Name, Email, Message)' });
+    }
+
+    // Email regex validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid email address' });
+    }
+
+    const contact = new Contact({ name, email, message });
+    const savedContact = await contact.save();
+
+    return res.status(200).json({ 
+      success: true, 
+      message: 'Thank you! Your inquiry has been received. Our registrar office will contact you shortly.',
+      data: savedContact
+    });
+  } catch (error) {
+    next(error);
+  }
+});
 
 // Error Middlewares
 app.use(notFound);

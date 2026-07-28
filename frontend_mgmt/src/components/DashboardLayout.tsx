@@ -30,6 +30,7 @@ import {
   CalendarCheck,
   ScanFace,
   Megaphone,
+  UserPlus,
 } from 'lucide-react';
 
 const drawerWidth = 260;
@@ -73,6 +74,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       // Students
       items.push({ text: 'Students', path: '/students', icon: <Users size={20} /> });
 
+      // Admission Applications review page (Admin & Principal)
+      if (['Admin', 'Principal'].includes(user.role)) {
+        items.push({ text: 'Admission Applications', path: '/admissions-applications', icon: <UserPlus size={20} /> });
+      }
+
       // Teachers
       items.push({ text: 'Teachers', path: '/teachers', icon: <UserCheck size={20} /> });
 
@@ -100,7 +106,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#0B1220', color: '#FDFBF7', borderRight: '1px solid rgba(255,255,255,0.06)' }}>
       <Toolbar sx={{ borderBottom: '1px solid rgba(255,255,255,0.06)', py: 2.5, px: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#EA580C', boxShadow: '0 0 12px #EA580C' }} />
+          <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: '#E8751A', boxShadow: '0 0 12px #E8751A' }} />
           <Typography
             variant="h5"
             fontWeight="800"
@@ -116,7 +122,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
       <Box sx={{ p: 2.5, mx: 2, my: 2, display: 'flex', alignItems: 'center', gap: 1.5, borderRadius: 3, bgcolor: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
         <Avatar
           src={user?.profilePicture}
-          sx={{ width: 42, height: 42, bgcolor: '#EA580C', border: '2px solid rgba(234,88,12,0.6)', boxShadow: '0 0 12px rgba(234,88,12,0.3)' }}
+          sx={{ width: 42, height: 42, bgcolor: '#E8751A', border: '2px solid rgba(232,117,26,0.6)', boxShadow: '0 0 12px rgba(232,117,26,0.3)' }}
         >
           {user?.name?.charAt(0).toUpperCase()}
         </Avatar>
@@ -145,10 +151,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                   borderRadius: 3,
                   py: 1.3,
                   px: 2,
-                  bgcolor: isActive ? 'rgba(13, 148, 136, 0.12)' : 'transparent',
-                  color: isActive ? '#D4AF37' : '#94A3B8',
-                  border: isActive ? '1px solid rgba(212, 175, 55, 0.2)' : '1px solid transparent',
-                  boxShadow: isActive ? '0 4px 15px rgba(13, 148, 136, 0.08)' : 'none',
+                  bgcolor: isActive ? 'rgba(15, 118, 110, 0.12)' : 'transparent',
+                  color: isActive ? '#E8751A' : '#94A3B8',
+                  border: isActive ? '1px solid rgba(232, 117, 26, 0.2)' : '1px solid transparent',
+                  boxShadow: isActive ? '0 4px 15px rgba(15, 118, 110, 0.08)' : 'none',
                   '&:hover': {
                     bgcolor: 'rgba(255,255,255,0.04)',
                     color: '#FDFBF7',
@@ -157,7 +163,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
               >
-                <ListItemIcon sx={{ color: isActive ? '#D4AF37' : '#64748B', minWidth: 38 }}>
+                <ListItemIcon sx={{ color: isActive ? '#E8751A' : '#64748B', minWidth: 38 }}>
                   {item.icon}
                 </ListItemIcon>
                 <ListItemText
@@ -210,6 +216,8 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           <Typography variant="h6" fontWeight="bold" sx={{ color: '#FDFBF7', fontFamily: 'Plus Jakarta Sans' }}>
             {location.pathname.startsWith('/students')
               ? 'Student Records'
+              : location.pathname.startsWith('/admissions-applications')
+              ? 'Admission Applications'
               : location.pathname.startsWith('/teachers')
               ? 'Faculty Directory'
               : location.pathname.startsWith('/staff')
@@ -234,7 +242,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
             >
               <Avatar
                 src={user?.profilePicture}
-                sx={{ width: 32, height: 32, bgcolor: '#EA580C', border: '1.5px solid rgba(234,88,12,0.5)' }}
+                sx={{ width: 32, height: 32, bgcolor: '#E8751A', border: '1.5px solid rgba(232,117,26,0.5)' }}
               >
                 {user?.name?.charAt(0).toUpperCase()}
               </Avatar>

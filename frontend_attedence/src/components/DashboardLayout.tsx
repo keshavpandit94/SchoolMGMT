@@ -51,7 +51,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#0F172A', color: '#F8FAFC' }}>
       <Toolbar sx={{ borderBottom: '1px solid rgba(255,255,255,0.06)', py: 2 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Avatar sx={{ bgcolor: '#6366F1', width: 38, height: 38, border: '2px solid #818CF8' }}>
+          <Avatar sx={{ bgcolor: '#E8751A', width: 38, height: 38, border: '2px solid #E8751A' }}>
             <ScanFace size={22} />
           </Avatar>
           <Box>
@@ -61,10 +61,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
               className="gradient-text"
               sx={{ fontFamily: 'Plus Jakarta Sans', letterSpacing: 0.5, lineHeight: 1.2 }}
             >
-              EduAttendance
+              KCP Public School Attendance
             </Typography>
             <Typography variant="caption" sx={{ color: '#94A3B8', fontSize: 11 }}>
-              Staff & Faculty Kiosk Portal
+              Lucknow • Attendance Portal
             </Typography>
           </Box>
         </Box>
@@ -100,9 +100,9 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
                   borderRadius: 3,
                   py: 1.2,
                   px: 2,
-                  bgcolor: isActive ? 'rgba(99, 102, 241, 0.15)' : 'transparent',
-                  color: isActive ? '#818CF8' : '#94A3B8',
-                  border: isActive ? '1px solid rgba(99, 102, 241, 0.25)' : '1px solid transparent',
+                  bgcolor: isActive ? 'rgba(15, 118, 110, 0.15)' : 'transparent',
+                  color: isActive ? '#E8751A' : '#94A3B8',
+                  border: isActive ? '1px solid rgba(232, 117, 26, 0.25)' : '1px solid transparent',
                   '&:hover': {
                     bgcolor: 'rgba(255,255,255,0.03)',
                     color: '#F8FAFC',
@@ -170,7 +170,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) => {
           </Typography>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Avatar sx={{ width: 32, height: 32, bgcolor: '#6366F1', fontSize: 14 }}>
+            <Avatar sx={{ width: 32, height: 32, bgcolor: '#E8751A', fontSize: 14 }}>
               K
             </Avatar>
             <Typography variant="body2" sx={{ display: { xs: 'none', sm: 'block' }, color: '#F8FAFC', fontWeight: 'bold' }}>
