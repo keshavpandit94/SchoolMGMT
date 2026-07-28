@@ -37,14 +37,14 @@ services:
 
   frontend_schoolweb:
     build:
-      context: ./frontend_schoolWeb
+      context: ./frontend_school_web
       dockerfile: Dockerfile
       target: development
     container_name: sms_frontend_schoolweb
     ports:
       - "5173:5173"
     volumes:
-      - ./frontend_schoolWeb:/app
+      - ./frontend_school_web:/app
       - /app/node_modules
     environment:
       - VITE_API_URL=http://localhost:5000

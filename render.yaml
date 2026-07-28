@@ -37,7 +37,7 @@ services:
   - type: web
     name: school-mgmt-schoolweb
     env: static
-    rootDir: frontend_schoolWeb
+    rootDir: frontend_school_web
     buildCommand: npm install && npm run build
     staticPublishPath: dist
     routes:

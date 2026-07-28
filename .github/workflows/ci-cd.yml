@@ -64,7 +64,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [backend, frontend_schoolWeb, frontend_mgmt, frontend_attedence]
+        service: [backend, frontend_school_web, frontend_mgmt, frontend_attedence]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
