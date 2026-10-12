@@ -20,12 +20,10 @@ services:
         generateValue: true
       - key: CLIENT_URL
         sync: false # Render Frontends URLs (comma separated)
-      - key: RESEND_API_KEY
-        sync: false # Get free API Key at https://resend.com
       - key: BREVO_API_KEY
-        sync: false # Optional: Brevo API key for domain-free delivery
+        sync: false # Get free API Key at https://app.brevo.com/settings/keys/api
       - key: EMAIL_FROM
-        value: onboarding@resend.dev
+        sync: false # Brevo registered sender email (e.g. your_email@gmail.com)
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY

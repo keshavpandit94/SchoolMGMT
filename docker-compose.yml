@@ -25,8 +25,8 @@ services:
       - MONGO_URI=mongodb://mongodb:27017/school_mgmt
       - JWT_SECRET=supersecretjwtkey12345!
       - CLIENT_URL=http://localhost:5173,http://localhost:5174,http://localhost:5175
-      - RESEND_API_KEY=
-      - EMAIL_FROM=onboarding@resend.dev
+      - BREVO_API_KEY=
+      - EMAIL_FROM=contact@schoolmgmt.com
       - CLOUDINARY_CLOUD_NAME=
       - CLOUDINARY_API_KEY=
       - CLOUDINARY_API_SECRET=
