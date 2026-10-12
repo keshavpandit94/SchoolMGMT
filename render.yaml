@@ -20,10 +20,12 @@ services:
         generateValue: true
       - key: CLIENT_URL
         sync: false # Render Frontends URLs (comma separated)
-      - key: BREVO_API_KEY
-        sync: false # Get free API Key at https://app.brevo.com/settings/keys/api
+      - key: EMAIL_USER
+        sync: false # Gmail address or SMTP username
+      - key: EMAIL_PASS
+        sync: false # 16-digit Google App Password or SMTP password
       - key: EMAIL_FROM
-        sync: false # Brevo registered sender email (e.g. your_email@gmail.com)
+        sync: false # Sender address header e.g. "EduManage <your_email@gmail.com>"
       - key: CLOUDINARY_CLOUD_NAME
         sync: false
       - key: CLOUDINARY_API_KEY
